@@ -1,9 +1,14 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import Base, engine
 from .routes import admin, comments, drafts, engagement, health, learning, posts, reports, sources
+from .services.db_check import SchemaError, startup_schema_check
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -36,3 +41,11 @@ app = create_app()
 
 if settings.auto_create_tables:
     Base.metadata.create_all(bind=engine)
+
+# Startup schema validation: log clear error if tables are missing.
+# In dev mode with auto_create_tables, skip check since tables were just created.
+if not settings.auto_create_tables:
+    try:
+        startup_schema_check(engine)
+    except SchemaError as exc:
+        logger.warning("Startup schema check failed: %s — app will continue but requests may fail.", exc)

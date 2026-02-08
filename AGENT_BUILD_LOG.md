@@ -55,6 +55,98 @@ Rate confidence in this build from 1 to 10 and explain why.
 <List next steps>
 
 ---
+## [2026-02-09 00:00 SAST] Build: v4.5 Startup Self-Check and DB Diagnostic Endpoint
+
+### Build Phase
+Post Build
+
+### Goal
+Improve startup reliability by adding a self-check that validates DB schema presence on app init and a diagnostic endpoint for troubleshooting DB state.
+
+### Context
+Phase 1 of multi-phase stabilization plan. HANDOVER.md section 4.1 identified need for startup self-check. User instruction specifies: startup schema validation, diagnostic endpoint, and regression tests.
+
+### Scope
+In scope:
+- Startup self-check that validates key tables exist (drafts, posts, comments, and 6 others)
+- Clear human-readable error log and fail-fast on missing schema
+- `GET /health/db` diagnostic endpoint returning redacted DB URL, migration head, table existence
+- Regression tests for healthy DB, missing tables, empty DB scenarios
+- Version bumps (Sidebar, README, CLAUDE.md)
+
+Out of scope:
+- Frontend changes (Phase 2)
+- Logging restructuring (Phase 3)
+- New Python dependencies beyond pytest (test runner)
+
+### Planned Changes
+1. Add `app/services/db_check.py` with schema validation logic
+2. Call schema check during `create_app()` with clear error logging
+3. Add `GET /health/db` endpoint in `app/routes/health.py`
+4. Add `Backend/tests/test_v12_startup_check.py` with regression tests
+5. Update version markers in Sidebar.jsx, README.md, CLAUDE.md
+
+### Actual Changes Made (Post Build only)
+1. Created `app/services/db_check.py` with `check_schema()`, `startup_schema_check()`, `SchemaError`, and `REQUIRED_TABLES` (9 tables)
+2. Updated `app/main.py` to call `startup_schema_check(engine)` on init (skipped when `auto_create_tables` is True)
+3. Added `GET /health/db` endpoint in `app/routes/health.py` with redacted URL, migration head query, and table existence check
+4. Added URL credential redaction helper in health routes
+5. Created `tests/test_v12_startup_check.py` with 9 tests covering healthy/empty/partial DB and endpoint structure
+6. Updated Sidebar.jsx to v4.5, README.md version reference, and CLAUDE.md with v4.5 section (section 54)
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/db_check.py` (new)
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py` (modified)
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/health.py` (modified)
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v12_startup_check.py` (new)
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` (modified)
+- `/Users/sphiwemawhayi/Personal Brand/README.md` (modified)
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` (modified)
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md` (modified)
+
+### Reasoning
+A startup self-check prevents confusing 500 errors when DB schema is missing. A diagnostic endpoint gives operators instant visibility into DB state without shell access. Using SQLAlchemy `inspect` keeps it dependency-free.
+
+### Assumptions
+- SQLAlchemy `inspect` can check table existence without migration framework
+- Logging a warning (not hard crash) on missing schema is appropriate for dev flexibility
+- Tests can use in-memory SQLite to simulate missing/empty DB states
+
+### Risks and Tradeoffs
+- Risk: self-check adds startup latency. Mitigation: table existence check is a fast metadata query.
+- Risk: `GET /health/db` has no auth. Mitigation: acceptable for local-first tool; note added for production.
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` (31 passed)
+- `./scripts/v1_smoke.sh` (31 backend + 35 frontend + build passed)
+- `cd Frontend && npm test -- --run` (35 passed)
+- `cd Frontend && npm run build` (passed)
+
+Manual checks:
+- Verified `GET /health/db` endpoint returns expected structure with redacted URL
+
+Result:
+- All 31 backend tests pass (22 existing + 9 new)
+- All 35 frontend tests pass
+- Frontend production build passes
+- Unified smoke script passes
+
+### Result
+Backend now validates DB schema completeness on startup and provides a diagnostic endpoint. Operators can check `GET /health/db` to diagnose DB configuration issues without shell access.
+
+### Confidence Rating
+9/10. Implementation is straightforward, fully tested, and uses only stdlib + SQLAlchemy inspect. One point deducted because the startup check logs a warning rather than crashing, which is a design choice that may need revisiting for production.
+
+### Known Gaps or Uncertainty
+- `GET /health/db` does not require authentication; acceptable for local-first tool but should be reviewed for production.
+- Startup check logs warning and continues rather than hard-failing; behavior may need to be stricter in production.
+
+### Next Steps
+1. Commit v4.5
+2. Proceed to Phase 2 (v4.6 Frontend Hardening)
+
+---
 ## [2026-02-08 21:28 SAST] Build: End-of-Day Handover Document
 
 ### Build Phase

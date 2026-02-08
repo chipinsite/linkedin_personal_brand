@@ -1,13 +1,35 @@
+import re
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..db import get_db
+from ..db import engine, get_db
+from ..services.db_check import check_schema
 
 import redis as redis_lib
 
 router = APIRouter()
+
+# Pattern to redact credentials from DB URLs (user:password@host)
+_CRED_RE = re.compile(r"://[^@]+@")
+
+
+def _redact_url(url: str) -> str:
+    """Redact credentials from a database URL for safe display."""
+    return _CRED_RE.sub("://***@", url)
+
+
+def _migration_head() -> dict:
+    """Check current alembic migration head."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT version_num FROM alembic_version"))
+            rows = [r[0] for r in result]
+            return {"current_head": rows[0] if rows else None, "error": None}
+    except Exception as exc:  # noqa: BLE001
+        return {"current_head": None, "error": str(exc)}
 
 
 @router.get("/health")
@@ -51,3 +73,21 @@ def readiness(db: Session = Depends(get_db)):
         return {"ready": True}
     except Exception as exc:  # noqa: BLE001
         return {"ready": False, "error": str(exc)}
+
+
+@router.get("/health/db")
+def db_diagnostic():
+    """Diagnostic endpoint showing DB URL (redacted), migration head, and table status."""
+    db_url = _redact_url(str(engine.url))
+    migration = _migration_head()
+    schema = check_schema(engine)
+
+    return {
+        "database_url": db_url,
+        "migration": migration,
+        "schema": {
+            "ok": schema["ok"],
+            "tables": schema["tables"],
+            "missing": schema["missing"],
+        },
+    }

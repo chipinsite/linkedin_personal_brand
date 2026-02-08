@@ -1071,6 +1071,7 @@ All AI generated content must adhere to:
 | 3.1 | 2026-02-08 | Added minute-level live countdown ticking for snoozed alerts with interval test coverage |
 | 4.0 | 2026-02-08 | Finalised single-user operational release with full-state backup export and completion status |
 | 4.1 | 2026-02-08 | Hardened local startup: alembic DB fallback, CORS enablement, and reduced preflight requests |
+| 4.5 | 2026-02-09 | Added startup self-check for DB schema completeness and GET /health/db diagnostic endpoint with regression tests |
 
 ---
 
@@ -2915,3 +2916,56 @@ Result:
   - outstanding work and known scope gaps
   - first-30-min takeover checklist
   - troubleshooting for recurring local backend issues
+
+---
+
+## 54. v4.5 Startup Self-Check and DB Diagnostic Endpoint (2026-02-09)
+
+### 54.1 v4.5 Scope
+
+v4.5 adds startup reliability and DB state observability:
+
+- startup self-check validates required tables exist on app init
+- clear human-readable error logging when schema is incomplete
+- `GET /health/db` diagnostic endpoint with redacted DB URL, migration head, and table existence map
+- regression tests for healthy, empty, and partial DB scenarios
+
+### 54.2 v4.5 Implementation Added
+
+- New service:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/db_check.py`
+  - `check_schema(engine)` inspects table existence
+  - `startup_schema_check(engine)` raises `SchemaError` on missing tables
+  - `REQUIRED_TABLES` frozen set of 9 expected tables
+- Startup integration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+  - calls `startup_schema_check` on init (skipped when `auto_create_tables` is True)
+  - logs warning and continues if check fails (avoids hard crash for dev flexibility)
+- New diagnostic endpoint:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/health.py`
+  - `GET /health/db` returns:
+    - `database_url` (credentials redacted)
+    - `migration.current_head` (alembic version)
+    - `schema.ok`, `schema.tables` (per-table existence), `schema.missing`
+- New regression tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v12_startup_check.py`
+  - 9 tests covering healthy DB, empty DB, partial DB, SchemaError raise, and endpoint structure
+
+### 54.3 v4.5 Validation Status
+
+Executed on 2026-02-09:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`31/31`)
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- unified smoke run passed
+
+### 54.4 Remaining Constraints
+
+- Startup check logs a warning but does not hard-crash the app; this allows dev workflows where tables are created lazily.
+- `GET /health/db` does not require authentication; consider adding read auth for production exposure.
