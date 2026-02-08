@@ -1026,3 +1026,81 @@ Frontend now has automated smoke test coverage, and the root smoke workflow vali
 ### Next Steps
 - Expand frontend tests to include action workflows (generate, approve/reject, publish confirmation).
 - Triage and address npm vulnerability warnings in a dedicated dependency hygiene build.
+
+---
+
+## [2026-02-08 16:54 SAST] Build: v1.2 Frontend Action Workflow Tests
+
+### Build Phase
+Post Build
+
+### Goal
+Increase frontend test confidence by covering critical action workflows beyond initial render.
+
+### Context
+Continuation after v1.1 where known gap remained: smoke coverage is shallow and does not validate key operator actions.
+
+### Scope
+In scope:
+- Add frontend tests for high-value UI actions (draft generation and rejection)
+- Verify relevant API endpoints are invoked via `fetch`
+- Keep tests deterministic with mocked API responses
+- Update documentation and build log
+Out of scope:
+- Full end-to-end browser automation
+- Backend logic changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` from 1 to 3 tests
+- Added deterministic mock API harness with method/path call capture and mutable draft state
+- Added Generate action test asserting `POST /drafts/generate`
+- Added Reject action test asserting `POST /drafts/{id}/reject`
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v1.2 version row and section 29
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` version status to v1.2
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+
+### Reasoning
+The two actions chosen are high-frequency operator paths and validate state-changing calls from UI to API with minimal test complexity.
+
+### Assumptions
+- Existing button labels/selectors remain stable.
+- Current App structure permits deterministic testing through mocked global `fetch`.
+
+### Risks and Tradeoffs
+- Risk: brittle selectors if UI text changes.
+- Mitigation: use role-based selectors where possible and keep assertions focused on API contract.
+- Tradeoff: still unit-level and not full integration coverage.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified test assertions cover action button clicks and expected API endpoint invocations
+Result:
+- Frontend tests passed (`3` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend automated coverage now includes critical state-changing actions (generate and reject), reducing regression risk for core operator workflows.
+
+### Confidence Rating
+9/10. Added tests are deterministic and passing; confidence is high for covered actions, with expected limits of unit-level mocking.
+
+### Known Gaps or Uncertainty
+- Coverage still excludes approve/publish/ingest/report action paths.
+- Tests are mock-network unit tests and do not validate live backend integration through a browser runtime.
+
+### Next Steps
+- Add action coverage for approve and manual publish confirmation flows.
+- Add a lightweight end-to-end happy-path check against a running local backend.

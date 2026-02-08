@@ -1050,6 +1050,7 @@ All AI generated content must adhere to:
 | 0.8 | 2026-02-06 | Added daily reporting endpoints and scheduled summary delivery workflow |
 | 0.9 | 2026-02-06 | Added operational readiness layer: deep health checks, readiness endpoint, Makefile, and CI workflow |
 | 1.1 | 2026-02-08 | Added frontend automated smoke testing harness (Vitest + Testing Library) and integrated tests into unified smoke execution |
+| 1.2 | 2026-02-08 | Expanded frontend automated tests to cover draft generate/reject action workflows and API call-path assertions |
 
 ---
 
@@ -1742,3 +1743,44 @@ Result:
 
 - Frontend test coverage is intentionally minimal (smoke-level) and does not yet include user-flow interaction matrix or visual regression checks.
 - Vulnerability warnings reported by `npm` remain to be triaged separately.
+
+---
+
+## 29. v1.2 Frontend Action Workflow Coverage (2026-02-08)
+
+### 29.1 v1.2 Scope
+
+v1.2 extends frontend test confidence from render-only smoke to action workflow coverage:
+
+- validate draft generation action path
+- validate draft rejection action path
+- assert correct backend API endpoint invocations from UI actions
+
+### 29.2 v1.2 Implementation Added
+
+- Expanded frontend test suite:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- Added deterministic mock API state harness for test scenarios:
+  - method/path call capture
+  - mutable draft state transitions for generate/reject flows
+- Added tests:
+  - `Generate` click triggers `POST /drafts/generate`
+  - `Reject` click triggers `POST /drafts/{id}/reject`
+
+### 29.3 v1.2 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`3/3`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 29.4 Remaining Constraints
+
+- Tests still run at component/unit level with mocked network calls and do not yet validate full browser/runtime integration against a live backend.
