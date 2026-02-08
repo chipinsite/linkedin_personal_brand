@@ -26,7 +26,15 @@ export default function Button({ children, variant = 'default', size = 'md', onC
   };
 
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...extraStyle }} {...rest}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={{ ...base, ...variants[variant], outline: 'none', ...extraStyle }}
+      onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${C.accent}`; }}
+      onBlur={(e) => { e.target.style.boxShadow = 'none'; }}
+      {...rest}
+    >
       {children}
     </button>
   );

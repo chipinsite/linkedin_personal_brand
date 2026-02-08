@@ -1155,4 +1155,102 @@ describe('App', () => {
       expect(screen.getByText('report.daily.send')).toBeInTheDocument();
     });
   });
+
+  // ── v4.8 Accessibility tests ──────────────────────────────
+
+  it('renders skip-to-content link that becomes visible on focus', async () => {
+    setupMockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+
+    const skipLink = screen.getByText('Skip to main content');
+    expect(skipLink).toBeInTheDocument();
+    expect(skipLink.getAttribute('href')).toBe('#main-content');
+  });
+
+  it('marks active sidebar nav item with aria-current', async () => {
+    setupMockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+
+    const dashboardBtn = screen.getByRole('button', { name: 'Dashboard' });
+    expect(dashboardBtn.getAttribute('aria-current')).toBe('page');
+
+    const contentBtn = screen.getByRole('button', { name: 'Content' });
+    expect(contentBtn.getAttribute('aria-current')).toBeNull();
+  });
+
+  it('sidebar nav has aria-label', async () => {
+    setupMockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(nav).toBeInTheDocument();
+  });
+
+  it('main content area has aria-label reflecting active view', async () => {
+    setupMockApi();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+
+    const main = screen.getByRole('main');
+    expect(main.getAttribute('aria-label')).toBe('Dashboard view');
+    expect(main.getAttribute('id')).toBe('main-content');
+  });
+
+  it('loading spinner has role=status and aria-busy', async () => {
+    const { calls } = setupMockApi();
+    const baseFetch = global.fetch;
+
+    let draftsGetCount = 0;
+    const pendingDrafts = new Promise(() => {});
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      const method = (options?.method || 'GET').toUpperCase();
+      if (parsed.pathname === '/drafts' && method === 'GET') {
+        draftsGetCount++;
+        if (draftsGetCount > 1) {
+          await pendingDrafts;
+          return mockJson([]);
+        }
+      }
+      return baseFetch(url, options);
+    });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+    openView('Content');
+
+    await waitFor(() => {
+      const statusElements = screen.getAllByRole('status');
+      const spinner = statusElements.find((el) => el.getAttribute('aria-busy') === 'true');
+      expect(spinner).toBeTruthy();
+      expect(spinner.textContent).toContain('Loading');
+    });
+  });
+
+  it('error message has role=alert', async () => {
+    global.fetch = vi.fn(async () => { throw new Error('Network down'); });
+    render(<App />);
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert');
+      expect(alert).toBeInTheDocument();
+      expect(alert.textContent).toContain('Network down');
+    });
+  });
+
+  it('operational alert items have role=alert', async () => {
+    setupMockApi({
+      adminConfig: { kill_switch: true },
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts.length).toBeGreaterThan(0);
+    });
+  });
 });

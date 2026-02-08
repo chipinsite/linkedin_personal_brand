@@ -53,8 +53,32 @@ export default function App() {
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
+      <a
+        href="#main-content"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '8px',
+          zIndex: 100,
+          background: C.accent,
+          color: C.bg,
+          padding: '8px 16px',
+          borderRadius: '6px',
+          fontSize: '13px',
+          fontWeight: 600,
+          textDecoration: 'none',
+        }}
+        onFocus={(e) => { e.target.style.left = '8px'; }}
+        onBlur={(e) => { e.target.style.left = '-9999px'; }}
+      >
+        Skip to main content
+      </a>
       <Sidebar activeView={activeView} setActiveView={setActiveView} config={config} />
-      <main style={{ flex: 1, overflow: 'auto', padding: '32px 40px' }}>
+      <main
+        id="main-content"
+        aria-label={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} view`}
+        style={{ flex: 1, overflow: 'auto', padding: '32px 40px' }}
+      >
         <div style={{ maxWidth: '1100px' }}>{views[activeView]}</div>
       </main>
     </div>

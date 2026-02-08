@@ -55,7 +55,7 @@ export default function OperationalAlerts({
         visibleAlerts.map((alert) => {
           const style = alertStyle(alert.tone);
           return (
-            <div key={alert.id} style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+            <div key={alert.id} role="alert" style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
               <span>{alert.message}</span>
               <Button
                 size="sm"

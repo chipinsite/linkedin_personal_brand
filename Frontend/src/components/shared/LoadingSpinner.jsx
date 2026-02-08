@@ -3,6 +3,8 @@ import { C } from '../../constants/theme';
 export default function LoadingSpinner({ label = 'Loading...' }) {
   return (
     <div
+      role="status"
+      aria-busy="true"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -13,6 +15,7 @@ export default function LoadingSpinner({ label = 'Loading...' }) {
       }}
     >
       <div
+        aria-hidden="true"
         style={{
           width: '16px',
           height: '16px',

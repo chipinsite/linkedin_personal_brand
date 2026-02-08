@@ -10,6 +10,7 @@ export default function Sidebar({ activeView, setActiveView, config }) {
 
   return (
     <nav
+      aria-label="Main navigation"
       style={{
         width: '220px',
         minWidth: '220px',
@@ -74,6 +75,7 @@ export default function Sidebar({ activeView, setActiveView, config }) {
             <button
               key={item.id}
               onClick={() => setActiveView(item.id)}
+              aria-current={isActive ? 'page' : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -90,7 +92,10 @@ export default function Sidebar({ activeView, setActiveView, config }) {
                 fontWeight: isActive ? 600 : 500,
                 fontFamily: "'DM Sans', sans-serif",
                 transition: 'all 0.15s ease',
+                outline: 'none',
               }}
+              onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${C.accent}`; }}
+              onBlur={(e) => { e.target.style.boxShadow = 'none'; }}
             >
               <span style={{ opacity: isActive ? 1 : 0.7 }}>{item.icon}</span>
               {item.label}
@@ -100,8 +105,9 @@ export default function Sidebar({ activeView, setActiveView, config }) {
       </div>
 
       <div style={{ padding: '16px 20px', borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} role="status" aria-label={config?.kill_switch ? 'System halted' : 'All systems active'}>
           <div
+            aria-hidden="true"
             style={{
               width: 8,
               height: 8,
@@ -114,7 +120,7 @@ export default function Sidebar({ activeView, setActiveView, config }) {
           </span>
         </div>
         <span style={{ fontSize: '10px', color: C.textDim, marginTop: '4px', display: 'block', fontFamily: "'DM Sans', sans-serif" }}>
-          v4.7 · SAST
+          v4.8 · SAST
         </span>
       </div>
     </nav>

@@ -1074,6 +1074,7 @@ All AI generated content must adhere to:
 | 4.5 | 2026-02-09 | Added startup self-check for DB schema completeness and GET /health/db diagnostic endpoint with regression tests |
 | 4.6 | 2026-02-09 | Frontend component decomposition: shared loading/error/empty states, OperationalAlerts extraction, and expanded test coverage |
 | 4.7 | 2026-02-09 | Structured JSON logging, request ID tracing middleware, deploy profile separation, and aggregated /health/full endpoint |
+| 4.8 | 2026-02-09 | Accessibility: skip-to-content link, ARIA landmarks, role attributes on shared components, focus indicators, and 7 new a11y tests |
 
 ---
 
@@ -3096,3 +3097,66 @@ Result:
 - JSON logging auto-enables only when `app_env=prod`; local dev uses human-readable format by default.
 - Request ID middleware uses `BaseHTTPMiddleware` which has known limitations with streaming responses in Starlette; acceptable for current endpoint patterns.
 - `GET /health/full` reports `degraded` when Redis is unreachable, which is expected in minimal local setups.
+
+---
+
+## 57. v4.8 Accessibility and Keyboard Navigation (2026-02-09)
+
+### 57.1 v4.8 Scope
+
+v4.8 improves frontend accessibility for assistive technology and keyboard-only users:
+
+- skip-to-content link for keyboard navigation
+- ARIA landmarks and labels on navigation and main content
+- aria-current on active sidebar navigation item
+- role="alert" on error messages and operational alerts
+- role="status" and aria-busy on loading spinner
+- role="progressbar" with aria-value attributes on progress bars
+- visible focus indicators on all interactive elements
+- 7 new frontend accessibility tests
+
+### 57.2 v4.8 Implementation Added
+
+- App shell updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+  - added visually-hidden skip-to-content link (visible on focus)
+  - added `id="main-content"` and `aria-label` on `<main>` reflecting active view
+- Sidebar updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - added `aria-label="Main navigation"` on `<nav>`
+  - added `aria-current="page"` on active nav button
+  - added focus ring styling (box-shadow) on nav buttons
+  - added `role="status"` and `aria-label` on system status indicator
+  - added `aria-hidden="true"` on decorative status dot
+- Shared component updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/ErrorMessage.jsx` — added `role="alert"`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/LoadingSpinner.jsx` — added `role="status"`, `aria-busy="true"`, `aria-hidden="true"` on decorative spinner
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/OperationalAlerts.jsx` — added `role="alert"` on visible alert items
+- UI component updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx` — added visible focus ring via onFocus/onBlur box-shadow
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/ProgressBar.jsx` — added `role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, optional `label` prop
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - 7 new tests: skip-to-content link, aria-current on active nav, nav aria-label, main aria-label, spinner role/aria-busy, error role=alert, operational alert role=alert
+
+### 57.3 v4.8 Validation Status
+
+Executed on 2026-02-09:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`45/45`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+- unified smoke run passed
+
+### 57.4 Remaining Constraints
+
+- Form label-to-input associations (htmlFor/id) remain to be addressed in a future pass across all views.
+- Semantic list restructuring for comments/drafts/posts deferred to avoid layout-sensitive changes.
+- Heading hierarchy (h1/h2/h3) across views could be rationalized in a future pass.

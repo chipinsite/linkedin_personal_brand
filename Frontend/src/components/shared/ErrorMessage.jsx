@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 export default function ErrorMessage({ error, onRetry }) {
   return (
     <div
+      role="alert"
       style={{
         background: C.dangerMuted,
         border: `1px solid ${C.border}`,
