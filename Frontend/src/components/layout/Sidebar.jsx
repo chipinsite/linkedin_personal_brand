@@ -114,7 +114,7 @@ export default function Sidebar({ activeView, setActiveView, config }) {
           </span>
         </div>
         <span style={{ fontSize: '10px', color: C.textDim, marginTop: '4px', display: 'block', fontFamily: "'DM Sans', sans-serif" }}>
-          v4.6 · SAST
+          v4.7 · SAST
         </span>
       </div>
     </nav>

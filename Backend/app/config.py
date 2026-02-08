@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     app_env: str = "dev"
     auto_create_tables: bool = False
+    log_level: str = "INFO"
+    log_json: bool = False
     app_api_key: str | None = None
     app_read_api_key: str | None = None
     app_write_api_key: str | None = None

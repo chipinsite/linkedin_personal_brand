@@ -1073,6 +1073,7 @@ All AI generated content must adhere to:
 | 4.1 | 2026-02-08 | Hardened local startup: alembic DB fallback, CORS enablement, and reduced preflight requests |
 | 4.5 | 2026-02-09 | Added startup self-check for DB schema completeness and GET /health/db diagnostic endpoint with regression tests |
 | 4.6 | 2026-02-09 | Frontend component decomposition: shared loading/error/empty states, OperationalAlerts extraction, and expanded test coverage |
+| 4.7 | 2026-02-09 | Structured JSON logging, request ID tracing middleware, deploy profile separation, and aggregated /health/full endpoint |
 
 ---
 
@@ -3033,3 +3034,65 @@ Result:
 
 - Shared components use inline styles consistent with the existing codebase pattern.
 - Error retry resets `initialLoading` and re-fetches; no exponential backoff on client side.
+
+---
+
+## 56. v4.7 Operational Maturity: Logging, Tracing, and Deploy Profiles (2026-02-09)
+
+### 56.1 v4.7 Scope
+
+v4.7 adds production-grade observability and environment-aware defaults:
+
+- structured JSON log formatter for machine-parseable output
+- request ID middleware for end-to-end request tracing
+- deploy profile separation via `app_env`, `log_level`, and `log_json` config
+- aggregated `GET /health/full` endpoint combining all sub-checks
+- regression tests covering formatter, middleware, endpoint, and config defaults
+
+### 56.2 v4.7 Implementation Added
+
+- New logging module:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/logging_config.py`
+  - `JSONFormatter` outputs structured JSON with timestamp, level, logger, message, optional exception and request_id
+  - `configure_logging()` sets root logger format based on `json_format` flag
+- New middleware:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/middleware/request_id.py`
+  - `RequestIdMiddleware` generates or propagates `x-request-id` header via `contextvars`
+  - `get_request_id()` accessor for use in routes and log records
+- Config updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+  - added `log_level: str = "INFO"` and `log_json: bool = False`
+- App wiring:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+  - calls `configure_logging()` at import time with JSON auto-enabled for `app_env=prod`
+  - adds `RequestIdMiddleware` before CORS middleware
+  - logs startup info (env, log level, DB URL with credentials stripped)
+- New endpoint:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/health.py`
+  - `GET /health/full` aggregates heartbeat, database, redis, schema, and migration checks
+  - includes `app_env` and `request_id` in response
+- New tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v13_ops_maturity.py`
+  - 14 tests: JSONFormatter (3), RequestIdMiddleware (3), HealthFullEndpoint (5), DeployProfile (3)
+
+### 56.3 v4.7 Validation Status
+
+Executed on 2026-02-09:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`45/45`)
+- frontend tests passed (`44/44`)
+- frontend production build passed
+- unified smoke run passed
+
+### 56.4 Remaining Constraints
+
+- JSON logging auto-enables only when `app_env=prod`; local dev uses human-readable format by default.
+- Request ID middleware uses `BaseHTTPMiddleware` which has known limitations with streaming responses in Starlette; acceptable for current endpoint patterns.
+- `GET /health/full` reports `degraded` when Redis is unreachable, which is expected in minimal local setups.

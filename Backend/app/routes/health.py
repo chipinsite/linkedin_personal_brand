@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import engine, get_db
+from ..middleware.request_id import get_request_id
 from ..services.db_check import check_schema
 
 import redis as redis_lib
@@ -89,5 +90,53 @@ def db_diagnostic():
             "ok": schema["ok"],
             "tables": schema["tables"],
             "missing": schema["missing"],
+        },
+    }
+
+
+@router.get("/health/full")
+def full_health(db: Session = Depends(get_db)):
+    """Aggregated health check combining all sub-checks into a single response."""
+    # Basic health
+    basic = {"status": "ok"}
+
+    # Database readiness
+    db_ok = False
+    db_error = None
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as exc:  # noqa: BLE001
+        db_error = str(exc)
+
+    # Redis
+    redis_ok = False
+    redis_error = None
+    try:
+        client = redis_lib.Redis.from_url(settings.redis_url, socket_timeout=2)
+        redis_ok = bool(client.ping())
+    except Exception as exc:  # noqa: BLE001
+        redis_error = str(exc)
+
+    # Schema
+    schema = check_schema(engine)
+
+    # Migration
+    migration = _migration_head()
+
+    # Overall status
+    all_ok = db_ok and redis_ok and schema["ok"]
+    overall = "ok" if all_ok else "degraded"
+
+    return {
+        "status": overall,
+        "app_env": settings.app_env,
+        "request_id": get_request_id(),
+        "checks": {
+            "heartbeat": basic,
+            "database": {"ok": db_ok, "error": db_error},
+            "redis": {"ok": redis_ok, "error": redis_error},
+            "schema": {"ok": schema["ok"], "missing": schema["missing"]},
+            "migration": migration,
         },
     }

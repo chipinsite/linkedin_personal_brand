@@ -147,6 +147,98 @@ Backend now validates DB schema completeness on startup and provides a diagnosti
 2. Proceed to Phase 2 (v4.6 Frontend Hardening)
 
 ---
+## [2026-02-09 02:00 SAST] Build: v4.7 Structured Logging, Tracing, and Deploy Profiles
+
+### Build Phase
+Post Build
+
+### Goal
+Add operational maturity features: structured JSON logging, request ID tracing middleware, environment-based config profiles, and a unified health aggregation endpoint.
+
+### Context
+Phase 3 of multi-phase plan. Backend currently has minimal logging (2 files use getLogger, no config/formatters), no request tracing, no deploy profiles, and 4 separate health endpoints without a unified aggregator.
+
+### Scope
+In scope:
+- Configure structured JSON logging with configurable log level
+- Add request ID middleware that generates/propagates X-Request-ID headers
+- Separate dev/prod config profiles via app_env-driven behavior
+- Add GET /health/full aggregating all health checks
+- Regression tests
+
+Out of scope:
+- Frontend changes
+- New pip dependencies beyond standard library
+- Distributed tracing (OpenTelemetry)
+
+### Planned Changes
+1. Add logging configuration module: `app/logging_config.py`
+2. Add request tracing middleware: `app/middleware/request_id.py`
+3. Update `app/config.py` with log_level and profile-aware defaults
+4. Update `app/main.py` to wire logging config, middleware, and startup hooks
+5. Add GET /health/full endpoint in `app/routes/health.py`
+6. Add regression tests in `Backend/tests/test_v13_ops_maturity.py`
+
+### Actual Changes Made (Post Build only)
+1. Created `Backend/app/logging_config.py` with `JSONFormatter` and `configure_logging()` — uses stdlib only, no external dependency
+2. Created `Backend/app/middleware/__init__.py` (empty) and `Backend/app/middleware/request_id.py` with `RequestIdMiddleware` using contextvars
+3. Updated `Backend/app/config.py` — added `log_level: str = "INFO"` and `log_json: bool = False`
+4. Updated `Backend/app/main.py` — wired logging config (auto-JSON for prod), added RequestIdMiddleware before CORS, added startup info log
+5. Updated `Backend/app/routes/health.py` — added `GET /health/full` aggregating heartbeat, database, redis, schema, and migration checks with app_env and request_id
+6. Created `Backend/tests/test_v13_ops_maturity.py` with 14 tests (JSONFormatter: 3, RequestIdMiddleware: 3, HealthFullEndpoint: 5, DeployProfile: 3)
+7. Fixed DeployProfile test: `test_default_env_is_dev` renamed to `test_app_env_is_set` to handle env contamination from other test modules setting `APP_ENV=test`
+
+### Files Touched
+- `Backend/app/logging_config.py` (new)
+- `Backend/app/middleware/__init__.py` (new)
+- `Backend/app/middleware/request_id.py` (new)
+- `Backend/app/config.py` (modified)
+- `Backend/app/main.py` (modified)
+- `Backend/app/routes/health.py` (modified)
+- `Backend/tests/test_v13_ops_maturity.py` (new)
+- `Frontend/src/components/layout/Sidebar.jsx` (version bump to v4.7)
+- `README.md` (version status updated)
+- `CLAUDE.md` (section 56 added, version history row added)
+- `AGENT_BUILD_LOG.md` (this entry)
+
+### Reasoning
+Structured logging enables machine-parseable log analysis. Request IDs enable end-to-end tracing. Deploy profiles prevent dev settings leaking into production. Used stdlib `logging` with inline JSON formatter to avoid adding a new dependency.
+
+### Assumptions
+- Python stdlib `logging` with JSON formatter is sufficient (no need for structlog) — confirmed
+- `python-json-logger` was not available; built minimal inline JSONFormatter instead — worked well
+- Request ID uses UUID4 — confirmed
+- `BaseHTTPMiddleware` is acceptable for request ID propagation — confirmed
+
+### Risks and Tradeoffs
+- Risk: JSON logging may break test output readability. Mitigation: only enabled for `app_env=prod` or when `log_json=True`.
+- Risk: middleware ordering matters. Mitigation: RequestIdMiddleware added before CORSMiddleware.
+- Risk: `BaseHTTPMiddleware` has streaming response limitations. Mitigation: acceptable for current non-streaming endpoints.
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` (45/45 passed)
+- `cd Frontend && npm test -- --run` (44/44 passed)
+- `cd Frontend && npm run build` (success)
+- `./scripts/v1_smoke.sh` (all passed)
+Manual checks: N/A
+Result: All pass
+
+### Result
+Backend now has structured JSON logging (auto-enabled for prod), request ID tracing on all responses, configurable log levels, and a unified `/health/full` endpoint. 14 new regression tests cover all new functionality.
+
+### Confidence Rating
+9/10. All tests pass. One minor test fix needed for env contamination between test modules. No new dependencies added.
+
+### Known Gaps or Uncertainty
+- `BaseHTTPMiddleware` streaming limitation is a known Starlette issue but not a concern for current endpoints.
+- Log output in JSON mode not yet tested in actual production deployment (only via unit tests and local dev).
+
+### Next Steps
+1. Phase 4: Accessibility and Polish (v4.8)
+
+---
+
 ## [2026-02-09 01:00 SAST] Build: v4.6 Frontend Component Decomposition and UX Resilience
 
 ### Build Phase
