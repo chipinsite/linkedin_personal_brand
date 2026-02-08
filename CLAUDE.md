@@ -1049,6 +1049,7 @@ All AI generated content must adhere to:
 | 0.7 | 2026-02-06 | Added read/write auth profiles with optional enforced read access and compatibility mode |
 | 0.8 | 2026-02-06 | Added daily reporting endpoints and scheduled summary delivery workflow |
 | 0.9 | 2026-02-06 | Added operational readiness layer: deep health checks, readiness endpoint, Makefile, and CI workflow |
+| 1.1 | 2026-02-08 | Added frontend automated smoke testing harness (Vitest + Testing Library) and integrated tests into unified smoke execution |
 
 ---
 
@@ -1654,3 +1655,90 @@ Result:
 ### 26.4 Algorithm Alignment Confirmation
 
 v1.0 remains subject to section 25 enforcement. No frontend behavior bypasses backend content guardrails or posting controls; all publish and generation actions continue to flow through backend-aligned constraints.
+
+---
+
+## 27. Documentation and Execution Governance (2026-02-08)
+
+### 27.1 Mandatory Build Logging
+
+All builds must be logged in:
+
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+
+Using the fixed entry template exactly as defined in that file.
+
+### 27.2 Execution Gate
+
+Before any code change:
+
+1. Create a `Pre Build` entry with Goal, Scope, and Planned Changes.
+2. Do not modify code until the Pre Build entry exists.
+
+After build execution:
+
+1. Update the same entry to `Post Build`.
+2. Fill Actual Changes, Files Touched, Tests and Validation, Result, Confidence Rating, and Known Gaps.
+3. A build is incomplete until this Post Build update is done.
+
+### 27.3 Uncertainty Handling
+
+If a detail cannot be confidently determined, record `Unknown`.
+No guessing is allowed.
+
+### 27.4 Rules File
+
+Repository-level rules are also defined in:
+
+- `/Users/sphiwemawhayi/Personal Brand/DOCUMENTATION_RULES.md`
+
+---
+
+## 28. v1.1 Frontend Test Harness (2026-02-08)
+
+### 28.1 v1.1 Scope
+
+v1.1 closes the frontend validation gap by adding automated smoke testing and integrating it into the root smoke workflow:
+
+- frontend test runner and DOM test environment
+- baseline UI/data-load smoke test
+- unified smoke command now runs frontend tests before build
+
+### 28.2 v1.1 Implementation Added
+
+- Frontend test tooling:
+  - `vitest`
+  - `@testing-library/react`
+  - `@testing-library/jest-dom`
+  - `jsdom`
+- Frontend test config and setup:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/vite.config.js` (`test` block)
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/test/setup.js`
+- Frontend smoke test:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - covers initial render and API-backed dashboard refresh using mocked `fetch`
+- Frontend script update:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/package.json`
+  - added `npm test` command
+- Unified smoke script update:
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/v1_smoke.sh`
+  - now runs frontend tests and then production build
+
+### 28.3 v1.1 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend test files passed (`1/1`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 28.4 Remaining Constraints
+
+- Frontend test coverage is intentionally minimal (smoke-level) and does not yet include user-flow interaction matrix or visual regression checks.
+- Vulnerability warnings reported by `npm` remain to be triaged separately.
