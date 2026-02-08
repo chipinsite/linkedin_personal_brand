@@ -1,0 +1,39 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Migrate
+        env:
+          DATABASE_URL: sqlite+pysqlite:///ci.db
+        run: |
+          . .venv/bin/activate
+          alembic upgrade head
+      - name: Test
+        run: |
+          . .venv/bin/activate
+          python -m unittest discover -v -s tests -p 'test_*.py'
