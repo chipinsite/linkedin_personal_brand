@@ -1051,6 +1051,7 @@ All AI generated content must adhere to:
 | 0.9 | 2026-02-06 | Added operational readiness layer: deep health checks, readiness endpoint, Makefile, and CI workflow |
 | 1.1 | 2026-02-08 | Added frontend automated smoke testing harness (Vitest + Testing Library) and integrated tests into unified smoke execution |
 | 1.2 | 2026-02-08 | Expanded frontend automated tests to cover draft generate/reject action workflows and API call-path assertions |
+| 1.3 | 2026-02-08 | Expanded frontend automated tests to cover draft approve and manual publish confirmation action workflows |
 
 ---
 
@@ -1784,3 +1785,46 @@ Result:
 ### 29.4 Remaining Constraints
 
 - Tests still run at component/unit level with mocked network calls and do not yet validate full browser/runtime integration against a live backend.
+
+---
+
+## 30. v1.3 Approve and Publish Action Coverage (2026-02-08)
+
+### 30.1 v1.3 Scope
+
+v1.3 extends frontend action workflow test coverage to core approval and publish-confirmation paths:
+
+- approve draft action path
+- confirm manual publish action path
+
+### 30.2 v1.3 Implementation Added
+
+- Expanded frontend test suite in:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- Added mock handlers and assertions for:
+  - `POST /drafts/{id}/approve`
+  - `POST /posts/{id}/confirm-manual-publish`
+- Test suite now validates five key UI behaviors:
+  - initial render/data load
+  - generate
+  - reject
+  - approve
+  - confirm publish
+
+### 30.3 v1.3 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`5/5`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 30.4 Remaining Constraints
+
+- Frontend action tests still run against mocked network responses and do not replace full end-to-end runtime verification.

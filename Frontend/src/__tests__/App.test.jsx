@@ -24,7 +24,7 @@ function createApiState(overrides = {}) {
 
   return {
     drafts: overrides.drafts ?? [],
-    posts: [],
+    posts: overrides.posts ?? [],
     comments: [],
     sources: [],
     learning: { format_weights_json: '{}', tone_weights_json: '{}' },
@@ -88,7 +88,21 @@ function setupMockApi(overrides = {}) {
       );
       return mockJson(state.drafts.find((draft) => draft.id === draftId) || state.baseDraft);
     }
+    if (method === 'POST' && path.endsWith('/approve')) {
+      const draftId = path.split('/')[2];
+      state.drafts = state.drafts.map((draft) =>
+        draft.id === draftId ? { ...draft, status: 'APPROVED' } : draft,
+      );
+      return mockJson(state.drafts.find((draft) => draft.id === draftId) || state.baseDraft);
+    }
     if (method === 'GET' && path === '/posts') return mockJson(state.posts);
+    if (method === 'POST' && path.endsWith('/confirm-manual-publish')) {
+      const postId = path.split('/')[2];
+      state.posts = state.posts.map((post) =>
+        post.id === postId ? { ...post, published_at: '2026-02-08T12:00:00Z' } : post,
+      );
+      return mockJson(state.posts.find((post) => post.id === postId) || {});
+    }
     if (method === 'GET' && path === '/comments') return mockJson(state.comments);
     if (method === 'GET' && path === '/sources') return mockJson(state.sources);
     if (method === 'GET' && path === '/learning/weights') return mockJson(state.learning);
@@ -164,6 +178,60 @@ describe('App', () => {
       ).toBe(true);
       expect(screen.getByText('Draft rejected')).toBeInTheDocument();
       expect(screen.getByText('Pending: 0')).toBeInTheDocument();
+    });
+  });
+
+  it('calls approve endpoint when Approve is clicked for a pending draft', async () => {
+    const pendingDraft = {
+      id: '33333333-3333-3333-3333-333333333333',
+      pillar_theme: 'Agentic AI in Adtech',
+      sub_theme: 'AI bidding agents',
+      format: 'TEXT',
+      tone: 'EDUCATIONAL',
+      content_body: 'Pending approve draft',
+      status: 'PENDING',
+    };
+    const { calls } = setupMockApi({ drafts: [pendingDraft] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Pending: 1')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => {
+      expect(
+        calls.some(
+          (call) => call.method === 'POST' && call.path === `/drafts/${pendingDraft.id}/approve`,
+        ),
+      ).toBe(true);
+      expect(screen.getByText('Draft approved')).toBeInTheDocument();
+      expect(screen.getByText('Pending: 0')).toBeInTheDocument();
+    });
+  });
+
+  it('calls confirm publish endpoint when Confirm publish is clicked', async () => {
+    const post = {
+      id: '44444444-4444-4444-4444-444444444444',
+      draft_id: '33333333-3333-3333-3333-333333333333',
+      scheduled_time: '2026-02-08T08:00:00Z',
+      published_at: null,
+    };
+    const { calls } = setupMockApi({ posts: [post] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm publish' }));
+
+    await waitFor(() => {
+      expect(
+        calls.some(
+          (call) =>
+            call.method === 'POST' &&
+            call.path === `/posts/${post.id}/confirm-manual-publish`,
+        ),
+      ).toBe(true);
+      expect(screen.getByText('Manual publish confirmed')).toBeInTheDocument();
     });
   });
 });

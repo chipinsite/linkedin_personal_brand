@@ -1104,3 +1104,77 @@ Frontend automated coverage now includes critical state-changing actions (genera
 ### Next Steps
 - Add action coverage for approve and manual publish confirmation flows.
 - Add a lightweight end-to-end happy-path check against a running local backend.
+
+---
+
+## [2026-02-08 16:56 SAST] Build: v1.3 Approve and Publish Action Tests
+
+### Build Phase
+Post Build
+
+### Goal
+Cover additional high-value frontend operator actions with automated tests.
+
+### Context
+Continuation after v1.2 with remaining action coverage gaps.
+
+### Scope
+In scope:
+- Add tests for approve draft and confirm manual publish actions
+- Validate expected API endpoint invocations
+- Update docs/logs and run full validation
+Out of scope:
+- Backend behavior changes
+- End-to-end browser automation
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Extended test harness in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` to cover approve and confirm-publish action flows
+- Added mock handlers for `POST /drafts/{id}/approve` and `POST /posts/{id}/confirm-manual-publish`
+- Increased frontend test coverage from 3 to 5 passing tests
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v1.3 version row and section 30
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` version status to v1.3
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+
+### Reasoning
+Approve and publish confirmation are core lifecycle actions; testing them reduces regression risk in daily operations.
+
+### Assumptions
+- Existing button labels and post/draft rendering patterns are stable.
+
+### Risks and Tradeoffs
+- Risk: generated publish URL uses timestamp and may require pattern-based assertions.
+- Mitigation: assert endpoint path and request method, not exact payload string.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified approve and confirm-publish tests assert method/path calls for expected API endpoints
+Result:
+- Frontend tests passed (`5` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend automated action coverage now includes generate, reject, approve, and confirm-publish workflows.
+
+### Confidence Rating
+9/10. All targeted tests are passing and integrated into the root smoke flow; remaining risk is limited to uncovered workflows.
+
+### Known Gaps or Uncertainty
+- Action coverage still excludes source ingest, report send, and admin control toggles.
+- Tests remain component-level with mocked fetch and do not validate full browser/live-backend integration.
+
+### Next Steps
+- Add tests for source ingest and report send actions.
+- Add at least one live integration check against a running local backend/frontend pair.
