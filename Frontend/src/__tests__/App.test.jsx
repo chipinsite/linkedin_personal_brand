@@ -49,8 +49,9 @@ function createApiState(overrides = {}) {
       escalation_follower_threshold: 10000,
       linkedin_api_mode: 'manual',
       kill_switch: false,
+      ...(overrides.adminConfig ?? {}),
     },
-    alignment: { enforced: { engagement_bait: 'blocked' } },
+    alignment: overrides.alignment ?? { enforced: { engagement_bait: 'blocked' } },
     auditLogs: overrides.auditLogs ?? [],
     engagementStatus: { monitored_total: 0, active_total: 0, due_total: 0 },
     baseDraft,
@@ -220,6 +221,52 @@ describe('App', () => {
     });
 
     expect(global.fetch).toHaveBeenCalled();
+  });
+
+  it('shows operational alerts for critical dashboard conditions', async () => {
+    const now = Date.now();
+    setupMockApi({
+      adminConfig: { kill_switch: true, posting_enabled: false },
+      posts: [
+        {
+          id: 'post-due-1',
+          draft_id: 'draft-1',
+          scheduled_time: new Date(now - 60_000).toISOString(),
+          published_at: null,
+        },
+      ],
+      comments: [
+        {
+          id: 'esc-1',
+          published_post_id: 'post-due-1',
+          commenter_name: 'Operator',
+          comment_text: 'Need manual review',
+          commented_at: '2026-02-08T12:00:00Z',
+          is_high_value: true,
+          high_value_reason: 'TECHNICAL_QUESTION',
+          escalated: true,
+          auto_reply_sent: false,
+          auto_reply_text: null,
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
+    expect(screen.getByText('4 active')).toBeInTheDocument();
+    expect(screen.getByText(/Kill switch is ON/)).toBeInTheDocument();
+    expect(screen.getByText(/Posting is disabled/)).toBeInTheDocument();
+    expect(screen.getByText(/post\(s\) are due now/)).toBeInTheDocument();
+    expect(screen.getByText(/escalated comment\(s\) need manual follow-up/)).toBeInTheDocument();
+  });
+
+  it('shows clear operational alert state when there are no active issues', async () => {
+    setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
+    expect(screen.getByText('0 active')).toBeInTheDocument();
+    expect(screen.getByText('No active operational alerts.')).toBeInTheDocument();
   });
 
   it('calls generate draft endpoint when Generate is clicked', async () => {
@@ -661,7 +708,7 @@ describe('App', () => {
       expect(screen.getByText('due-aaaa')).toBeInTheDocument();
       expect(screen.queryByText('future-b')).not.toBeInTheDocument();
       expect(screen.queryByText('publishe')).not.toBeInTheDocument();
-      expect(screen.getByText(/due now/)).toBeInTheDocument();
+      expect(screen.getAllByText(/due now/i).length).toBeGreaterThan(0);
     });
   });
 

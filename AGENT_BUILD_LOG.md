@@ -2343,3 +2343,86 @@ Settings now supports quick audit narrowing for faster operational review withou
 - Consider server-side audit pagination/search if audit volumes increase.
 
 ---
+## [2026-02-08 19:44 SAST] Build: v2.7 Dashboard Operational Alerts
+
+### Build Phase
+Post Build
+
+### Goal
+Increase operational awareness by surfacing high-priority system and posting alerts directly on the Dashboard.
+
+### Context
+Current dashboard requires operators to infer important issues from multiple metrics and settings panels. A direct alert strip reduces reaction time for critical conditions.
+
+### Scope
+In scope:
+- Add a dashboard Operational Alerts panel
+- Compute alerts from existing dashboard data (kill switch, posting enabled, due posts, escalations)
+- Add frontend tests for alert visibility behavior
+- Update version markers and documentation
+Out of scope:
+- Backend API changes
+- New notification channels or background jobs
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`:
+- added `adminConfig` fetch in dashboard refresh flow
+- added derived `operationalAlerts` list for kill switch, posting disabled, due-now queue, and escalations
+- added `Operational Alerts` panel with active count, severity-styled alerts, and clear-state message
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- enabled `adminConfig` and `alignment` override support in mock state
+- added test covering active dashboard alerts
+- added test covering no-alert clear state
+- adjusted an existing queue-filter assertion to avoid duplicate `due now` text ambiguity
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v2.7`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v2.7 documentation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Operational surfaces should prioritize exception states. Centralizing alerts on the default view improves usability and lowers risk of missing critical constraints.
+
+### Assumptions
+- `adminConfig.kill_switch` and `adminConfig.posting_enabled` are reliable at dashboard refresh time.
+- Due-post detection based on `scheduled_time` and `published_at` remains valid.
+
+### Risks and Tradeoffs
+- Risk: Too many alerts can create noise.
+- Mitigation: Keep alerts concise and scoped to high-impact triggers only.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified Dashboard renders operational alert cards for critical conditions and clear-state message when no conditions are active.
+Result:
+- Frontend tests passed (`30/30`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Dashboard now surfaces high-priority operational conditions directly in the default operator view with validated automated coverage.
+
+### Confidence Rating
+9/10. Alert rules are deterministic and covered by tests plus smoke validation; residual risk is alert noise tuning as runtime volume grows.
+
+### Known Gaps or Uncertainty
+- Alerts are based on current snapshot data and do not yet include historical context or trend scoring.
+
+### Next Steps
+- Add lightweight browser E2E play-mode runner for critical dashboard + settings flows.
+- Add optional alert dismissal/snooze controls if operator noise increases.
+
+---

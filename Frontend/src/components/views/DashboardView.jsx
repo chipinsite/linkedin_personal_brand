@@ -24,6 +24,7 @@ export default function DashboardView() {
 
   const [health, setHealth] = useState(null);
   const [readiness, setReadiness] = useState(null);
+  const [adminConfig, setAdminConfig] = useState(null);
   const [drafts, setDrafts] = useState([]);
   const [posts, setPosts] = useState([]);
   const [comments, setComments] = useState([]);
@@ -43,9 +44,10 @@ export default function DashboardView() {
   const [metricsInput, setMetricsInput] = useState(METRIC_DEFAULTS);
 
   async function refreshData() {
-    const [healthRes, readinessRes, draftsRes, postsRes, commentsRes, sourcesRes, reportRes] = await Promise.all([
+    const [healthRes, readinessRes, adminConfigRes, draftsRes, postsRes, commentsRes, sourcesRes, reportRes] = await Promise.all([
       api.health(),
       api.readiness(),
+      api.adminConfig(),
       api.drafts(),
       api.posts(),
       api.comments(),
@@ -55,6 +57,7 @@ export default function DashboardView() {
 
     setHealth(healthRes);
     setReadiness(readinessRes);
+    setAdminConfig(adminConfigRes);
     setDrafts(draftsRes);
     setPosts(postsRes);
     setComments(commentsRes);
@@ -153,6 +156,40 @@ export default function DashboardView() {
 
   const totalImpressions = posts.reduce((sum, post) => sum + Number(post.impressions || 0), 0);
   const escalatedCount = comments.filter((comment) => comment.escalated).length;
+  const operationalAlerts = useMemo(() => {
+    const alerts = [];
+    if (adminConfig?.kill_switch) {
+      alerts.push({ id: 'kill-switch', tone: 'critical', message: 'Kill switch is ON. Publishing workflows are halted.' });
+    }
+    if (adminConfig && !adminConfig.posting_enabled) {
+      alerts.push({ id: 'posting-disabled', tone: 'warning', message: 'Posting is disabled. Scheduled posts will not be published.' });
+    }
+    if (publishQueueSummary.dueNow > 0) {
+      alerts.push({
+        id: 'due-posts',
+        tone: 'warning',
+        message: `${publishQueueSummary.dueNow} post(s) are due now and awaiting processing.`,
+      });
+    }
+    if (escalatedCount > 0) {
+      alerts.push({
+        id: 'escalations',
+        tone: 'info',
+        message: `${escalatedCount} escalated comment(s) need manual follow-up.`,
+      });
+    }
+    return alerts;
+  }, [adminConfig, publishQueueSummary.dueNow, escalatedCount]);
+
+  function alertStyle(tone) {
+    if (tone === 'critical') {
+      return { bg: C.dangerMuted, color: C.danger };
+    }
+    if (tone === 'warning') {
+      return { bg: C.warningMuted, color: C.warning };
+    }
+    return { bg: C.infoMuted, color: C.info };
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -179,6 +216,25 @@ export default function DashboardView() {
         <MetricCard label="Impressions" value={totalImpressions.toLocaleString()} />
         <MetricCard label="Escalated comments" value={escalatedCount} accent={C.danger} />
         <MetricCard label="Sources" value={sources.length} />
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'grid', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '13px', color: C.text, fontWeight: 600 }}>Operational Alerts</span>
+          <span style={{ fontSize: '12px', color: C.textMuted }}>{operationalAlerts.length} active</span>
+        </div>
+        {operationalAlerts.length === 0 ? (
+          <div style={{ fontSize: '12px', color: C.textMuted }}>No active operational alerts.</div>
+        ) : (
+          operationalAlerts.map((alert) => {
+            const style = alertStyle(alert.tone);
+            return (
+              <div key={alert.id} style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px' }}>
+                {alert.message}
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>

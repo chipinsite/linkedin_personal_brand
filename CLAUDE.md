@@ -1064,6 +1064,7 @@ All AI generated content must adhere to:
 | 2.4 | 2026-02-08 | Added Settings control to reset persisted UI preferences with coverage for reset behavior |
 | 2.5 | 2026-02-08 | Restored algorithm alignment and audit trail visibility in Settings with coverage |
 | 2.6 | 2026-02-08 | Added Settings audit filter controls and filtering test coverage |
+| 2.7 | 2026-02-08 | Added dashboard operational alerts for kill switch, posting state, due posts, and escalations with test coverage |
 
 ---
 
@@ -2387,3 +2388,51 @@ Result:
 ### 42.4 Remaining Constraints
 
 - Filtering is local to the currently fetched audit subset and does not perform backend search/pagination.
+
+---
+
+## 43. v2.7 Dashboard Operational Alerts (2026-02-08)
+
+### 43.1 v2.7 Scope
+
+v2.7 improves dashboard operability by adding a dedicated operational alert surface:
+
+- show high-priority conditions without navigating away from Dashboard
+- summarize active alert count for rapid situational awareness
+
+### 43.2 v2.7 Implementation Added
+
+- Updated dashboard view:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - loads `adminConfig` during dashboard refresh
+  - computes alert list from:
+    - kill switch enabled
+    - posting disabled
+    - due-now posts in queue
+    - escalated comments requiring follow-up
+  - renders `Operational Alerts` panel with severity styling and clear-state fallback
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added alert-positive and alert-clear tests
+  - updated queue filter assertion for text ambiguity introduced by alert messaging
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v2.7`
+
+### 43.3 v2.7 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`30/30`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 43.4 Remaining Constraints
+
+- Alerts are derived from current dashboard payload and do not yet include historical trend context.
