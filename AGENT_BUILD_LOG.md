@@ -2683,3 +2683,86 @@ Dashboard alerts now provide explicit snooze visibility and one-click recovery, 
 - Evaluate backend-backed shared snooze preferences for multi-operator usage.
 
 ---
+## [2026-02-08 20:38 SAST] Build: v3.1 Live Snooze Countdown Tick
+
+### Build Phase
+Post Build
+
+### Goal
+Make snoozed alert countdowns update automatically without manual refresh.
+
+### Context
+v3.0 added snooze countdown display, but values only update on re-render. Live minute-level ticking improves operator confidence.
+
+### Scope
+In scope:
+- Add lightweight 60-second dashboard tick for countdown refresh
+- Recompute visible/snoozed alert views from a shared current-time state
+- Add frontend test coverage for countdown tick behavior
+- Update version/docs/build log
+Out of scope:
+- Per-second timers
+- Backend storage changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`:
+- added `nowMs` state with a single 60-second interval tick and cleanup
+- switched snoozed/visible alert calculations to use `nowMs`
+- added optional test tick override hook (`window.__APP_ALERT_TICK_MS__`)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added interval-driven countdown update test (`2m left` -> `1m left`)
+- adjusted expiry test to verify automatic alert reappearance via timer tick
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v3.1`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v3.1 documentation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Minute-level auto-refresh provides better situational awareness with minimal performance overhead.
+
+### Assumptions
+- One-minute countdown granularity is sufficient for operator workflow.
+- Component lifecycle guarantees interval cleanup on unmount.
+
+### Risks and Tradeoffs
+- Risk: additional interval per dashboard mount.
+- Mitigation: single 60-second timer with cleanup keeps overhead low.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+Manual checks:
+- Verified snoozed countdown text updates without manual refresh once time advances.
+Result:
+- Frontend tests passed (`34/34`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+- Play-mode E2E targeted checks passed (`4 passed`, `30 skipped`)
+
+### Result
+Snoozed alert countdowns now update automatically every minute, keeping operator alert state current without manual interaction.
+
+### Confidence Rating
+9/10. Feature is covered by dedicated interval tests and full suite validation; remaining tradeoff is intentional minute-level granularity.
+
+### Known Gaps or Uncertainty
+- Countdown updates are minute-granular and not sub-minute precise.
+
+### Next Steps
+- If needed, expose configurable tick precision in settings for advanced operators.
+- Continue toward shared multi-operator snooze state if collaboration needs increase.
+
+---

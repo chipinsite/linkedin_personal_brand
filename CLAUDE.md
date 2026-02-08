@@ -1068,6 +1068,7 @@ All AI generated content must adhere to:
 | 2.8 | 2026-02-08 | Added play-mode E2E runner for critical dashboard/settings flows with sandbox-safe execution mode |
 | 2.9 | 2026-02-08 | Added per-alert dashboard snooze controls with local persistence and expiry coverage |
 | 3.0 | 2026-02-08 | Added alert snooze countdown visibility and clear-snoozes controls with expanded tests |
+| 3.1 | 2026-02-08 | Added minute-level live countdown ticking for snoozed alerts with interval test coverage |
 
 ---
 
@@ -2584,3 +2585,49 @@ Result:
 ### 46.4 Remaining Constraints
 
 - Countdown display updates on render/refresh rather than real-time ticking.
+
+---
+
+## 47. v3.1 Live Snooze Countdown Tick (2026-02-08)
+
+### 47.1 v3.1 Scope
+
+v3.1 upgrades snooze countdown behavior from static to live-updating:
+
+- refresh countdown labels every minute automatically
+- keep alert visibility and snoozed metadata in sync with current time
+
+### 47.2 v3.1 Implementation Added
+
+- Updated dashboard timer behavior:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - added `nowMs` state and single 60-second interval tick with cleanup
+  - switched snoozed/visible alert calculations to use `nowMs` (instead of one-off `Date.now()` calls)
+  - added optional test override hook `window.__APP_ALERT_TICK_MS__` for deterministic interval testing
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added interval-driven countdown update test (`2m` to `1m`)
+  - adjusted expiry test to assert automatic reappearance via tick
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v3.1`
+
+### 47.3 v3.1 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+
+Result:
+
+- frontend tests passed (`34/34`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+- play-mode E2E targeted checks passed (`4 passed`, `30 skipped`)
+
+### 47.4 Remaining Constraints
+
+- Tick granularity remains minute-level by design; sub-minute countdown precision is intentionally not implemented.

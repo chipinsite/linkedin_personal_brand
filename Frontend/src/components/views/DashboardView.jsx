@@ -28,6 +28,16 @@ function formatSnoozeRemaining(ms) {
   return `${totalMinutes}m left`;
 }
 
+function getCountdownTickMs() {
+  if (typeof window !== 'undefined') {
+    const configured = Number(window.__APP_ALERT_TICK_MS__);
+    if (Number.isFinite(configured) && configured > 0) {
+      return configured;
+    }
+  }
+  return 60_000;
+}
+
 export default function DashboardView() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -53,6 +63,7 @@ export default function DashboardView() {
   });
   const [metricsTargetPostId, setMetricsTargetPostId] = useState('');
   const [metricsInput, setMetricsInput] = useState(METRIC_DEFAULTS);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [alertSnoozes, setAlertSnoozes] = useState(() => {
     try {
       const raw = localStorage.getItem(ALERT_SNOOZE_KEY);
@@ -123,6 +134,13 @@ export default function DashboardView() {
       // ignore storage write failures in constrained environments
     }
   }, [alertSnoozes]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNowMs(Date.now());
+    }, getCountdownTickMs());
+    return () => clearInterval(intervalId);
+  }, []);
 
   async function bootstrapDemoData() {
     const seedBody = `A practical observation on Adtech execution and what teams can do differently this week. [demo ${Date.now()}]`;
@@ -209,14 +227,14 @@ export default function DashboardView() {
     return alerts;
   }, [adminConfig, publishQueueSummary.dueNow, escalatedCount]);
   const visibleOperationalAlerts = (() => {
-    const now = Date.now();
+    const now = nowMs;
     return operationalAlerts.filter((alert) => {
       const until = Number(alertSnoozes[alert.id] || 0);
       return !until || until <= now;
     });
   })();
   const snoozedOperationalAlerts = (() => {
-    const now = Date.now();
+    const now = nowMs;
     return operationalAlerts
       .map((alert) => ({ ...alert, snoozedUntil: Number(alertSnoozes[alert.id] || 0) }))
       .filter((alert) => alert.snoozedUntil > now)
@@ -287,7 +305,7 @@ export default function DashboardView() {
             {' '}
             {snoozedOperationalAlerts.map((alert) => (
               <span key={alert.id} style={{ marginRight: '8px' }}>
-                {alert.id}: {formatSnoozeRemaining(alert.snoozedUntil - Date.now())}
+                {alert.id}: {formatSnoozeRemaining(alert.snoozedUntil - nowMs)}
               </span>
             ))}
           </div>

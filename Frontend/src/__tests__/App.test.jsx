@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from '../App';
 
 const ALERT_SNOOZE_KEY = 'app.dashboard.alertSnoozes';
@@ -208,6 +208,7 @@ describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    delete window.__APP_ALERT_TICK_MS__;
   });
 
   it('renders dashboard and loads initial data', async () => {
@@ -296,6 +297,7 @@ describe('App', () => {
   it('restores snoozed alert after expiration on refresh', async () => {
     const baseNow = 1_700_000_000_000;
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(baseNow);
+    window.__APP_ALERT_TICK_MS__ = 20;
     localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify({ 'kill-switch': baseNow + 2 * 60 * 60 * 1000 }));
 
     setupMockApi({
@@ -307,8 +309,10 @@ describe('App', () => {
     expect(screen.getByText('0 active')).toBeInTheDocument();
     expect(screen.queryByText(/Kill switch is ON/)).not.toBeInTheDocument();
 
-    nowSpy.mockReturnValue(baseNow + 2 * 60 * 60 * 1000 + 1);
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
+    await act(async () => {
+      nowSpy.mockReturnValue(baseNow + 2 * 60 * 60 * 1000 + 1);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
 
     await waitFor(() => {
       expect(screen.getByText('1 active')).toBeInTheDocument();
@@ -343,6 +347,30 @@ describe('App', () => {
 
     const snoozes = JSON.parse(localStorage.getItem(ALERT_SNOOZE_KEY) || '{}');
     expect(Object.keys(snoozes)).toHaveLength(0);
+    nowSpy.mockRestore();
+  });
+
+  it('updates snoozed countdown text on interval tick', async () => {
+    let now = 1_700_000_000_000;
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    window.__APP_ALERT_TICK_MS__ = 20;
+    localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify({ 'kill-switch': now + 2 * 60 * 1000 }));
+
+    setupMockApi({
+      adminConfig: { kill_switch: true, posting_enabled: true },
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText(/kill-switch: 2m left/)).toBeInTheDocument());
+
+    await act(async () => {
+      now += 60 * 1000;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    await waitFor(() => expect(screen.getByText(/kill-switch: 1m left/)).toBeInTheDocument());
+
+    delete window.__APP_ALERT_TICK_MS__;
     nowSpy.mockRestore();
   });
 
