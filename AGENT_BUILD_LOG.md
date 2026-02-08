@@ -1254,3 +1254,90 @@ Frontend automated action coverage now includes source ingest and report send in
 ### Next Steps
 - Add tests for admin kill switch/posting toggle actions.
 - Add one live integration check against a running backend/frontend stack.
+
+---
+
+## [2026-02-08 17:03 SAST] Build: v1.5 Frontend Interactive Workflows
+
+### Build Phase
+Post Build
+
+### Goal
+Expand the frontend so it supports richer end-user interaction across core content and engagement workflows.
+
+### Context
+User requested continued autonomous building toward a frontend they can actively use/play with, with high feature coverage from `CLAUDE.md`.
+
+### Scope
+In scope:
+- Add manual draft creation UI
+- Add post metrics update UI
+- Add comment creation UI
+- Improve publish confirmation UI input handling
+- Extend frontend tests for new workflow actions
+- Update docs and build log
+Out of scope:
+- New backend endpoints unrelated to existing API contracts
+- Full production deployment setup
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` with interactive workflow forms for:
+  - manual draft creation (`POST /drafts`)
+  - post metrics updates (`POST /posts/{id}/metrics`)
+  - comment creation (`POST /comments`)
+- Added missing API client methods in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`:
+  - `createDraft(payload)`
+  - `createComment(payload)`
+- Updated frontend styles in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/styles/app.css` for new form grid/select controls
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` from 7 to 10 tests with new endpoint assertions for create draft, update metrics, and create comment
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v1.5 documentation
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/styles/app.css`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Current frontend already covers many operations but lacks some high-value manual control workflows. Adding these closes practical usage gaps without backend contract changes.
+
+### Assumptions
+- Existing backend endpoint payloads remain stable and match current schema definitions.
+- UI complexity increase remains manageable within single-page dashboard layout.
+
+### Risks and Tradeoffs
+- Risk: additional controls increase UI density and potential usability strain.
+- Mitigation: keep forms concise and action-specific with clear labels.
+- Tradeoff: broader coverage now may defer deeper visual refinement.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Confirmed new UI controls render and action buttons map to intended workflow labels
+Result:
+- Frontend tests passed (`10` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend now supports richer hands-on interaction for core content lifecycle operations, moving from mostly trigger controls to practical manual workflow forms.
+
+### Confidence Rating
+9/10. New workflows are test-covered and validated in the smoke pipeline; remaining uncertainty is around unimplemented spec-level channels beyond current backend capabilities.
+
+### Known Gaps or Uncertainty
+- Some `CLAUDE.md` platform-level features remain backend-limited or not yet implemented end-to-end (e.g., WhatsApp/email notification channels, official LinkedIn API write path).
+- UI density increased; additional UX refinement may improve usability for non-technical operation.
+
+### Next Steps
+- Add admin toggle action tests (kill switch/posting toggles) to close remaining core UI action coverage.
+- Start a live integration validation mode against running backend and frontend processes.

@@ -25,7 +25,7 @@ function createApiState(overrides = {}) {
   return {
     drafts: overrides.drafts ?? [],
     posts: overrides.posts ?? [],
-    comments: [],
+    comments: overrides.comments ?? [],
     sources: [],
     learning: { format_weights_json: '{}', tone_weights_json: '{}' },
     report: {
@@ -73,6 +73,17 @@ function setupMockApi(overrides = {}) {
     }
     if (method === 'GET' && path === '/health/readiness') return mockJson({ ready: true });
     if (method === 'GET' && path === '/drafts') return mockJson(state.drafts);
+    if (method === 'POST' && path === '/drafts') {
+      const payload = JSON.parse(options.body || '{}');
+      const created = {
+        id: `manual-${state.drafts.length + 1}`,
+        status: 'PENDING',
+        ...state.baseDraft,
+        ...payload,
+      };
+      state.drafts = [created, ...state.drafts];
+      return mockJson(created);
+    }
     if (method === 'POST' && path === '/drafts/generate') {
       const newDraft = {
         ...state.baseDraft,
@@ -103,7 +114,28 @@ function setupMockApi(overrides = {}) {
       );
       return mockJson(state.posts.find((post) => post.id === postId) || {});
     }
+    if (method === 'POST' && path.endsWith('/metrics')) {
+      const postId = path.split('/')[2];
+      const payload = JSON.parse(options.body || '{}');
+      state.posts = state.posts.map((post) => (post.id === postId ? { ...post, ...payload } : post));
+      return mockJson(state.posts.find((post) => post.id === postId) || {});
+    }
     if (method === 'GET' && path === '/comments') return mockJson(state.comments);
+    if (method === 'POST' && path === '/comments') {
+      const payload = JSON.parse(options.body || '{}');
+      const created = {
+        id: `comment-${state.comments.length + 1}`,
+        ...payload,
+        commented_at: '2026-02-08T12:00:00Z',
+        is_high_value: false,
+        high_value_reason: null,
+        escalated: false,
+        auto_reply_sent: false,
+        auto_reply_text: null,
+      };
+      state.comments = [created, ...state.comments];
+      return mockJson(created);
+    }
     if (method === 'GET' && path === '/sources') return mockJson(state.sources);
     if (method === 'POST' && path === '/sources/ingest') {
       state.sources = [
@@ -277,6 +309,63 @@ describe('App', () => {
     await waitFor(() => {
       expect(calls.some((call) => call.method === 'POST' && call.path === '/reports/daily/send')).toBe(true);
       expect(screen.getByText('Daily report sent')).toBeInTheDocument();
+    });
+  });
+
+  it('calls create draft endpoint when Create Draft is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Pending: 0')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Draft' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/drafts')).toBe(true);
+      expect(screen.getByText('Manual draft created')).toBeInTheDocument();
+      expect(screen.getByText('Pending: 1')).toBeInTheDocument();
+    });
+  });
+
+  it('calls update metrics endpoint when Update metrics is clicked', async () => {
+    const post = {
+      id: '55555555-5555-5555-5555-555555555555',
+      draft_id: '33333333-3333-3333-3333-333333333333',
+      scheduled_time: '2026-02-08T08:00:00Z',
+      published_at: null,
+    };
+    const { calls } = setupMockApi({ posts: [post] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Metrics post id'), { target: { value: post.id } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update metrics' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === `/posts/${post.id}/metrics`)).toBe(true);
+      expect(screen.getByText('Post metrics updated')).toBeInTheDocument();
+    });
+  });
+
+  it('calls create comment endpoint when Add Comment is clicked', async () => {
+    const post = {
+      id: '66666666-6666-6666-6666-666666666666',
+      draft_id: '33333333-3333-3333-3333-333333333333',
+      scheduled_time: '2026-02-08T08:00:00Z',
+      published_at: null,
+    };
+    const { calls } = setupMockApi({ posts: [post] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Comment post id'), { target: { value: post.id } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Comment' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/comments')).toBe(true);
+      expect(screen.getByText('Comment added')).toBeInTheDocument();
     });
   });
 });

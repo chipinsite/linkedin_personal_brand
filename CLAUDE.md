@@ -1053,6 +1053,7 @@ All AI generated content must adhere to:
 | 1.2 | 2026-02-08 | Expanded frontend automated tests to cover draft generate/reject action workflows and API call-path assertions |
 | 1.3 | 2026-02-08 | Expanded frontend automated tests to cover draft approve and manual publish confirmation action workflows |
 | 1.4 | 2026-02-08 | Expanded frontend automated tests to cover source ingest and daily report send action workflows |
+| 1.5 | 2026-02-08 | Added interactive frontend workflows for manual draft creation, post metrics updates, and comment creation with expanded action tests |
 
 ---
 
@@ -1875,3 +1876,57 @@ Result:
 ### 31.4 Remaining Constraints
 
 - Action coverage remains mock-network component testing and does not yet include full browser/live-backend end-to-end coverage.
+
+---
+
+## 32. v1.5 Interactive Frontend Workflows (2026-02-08)
+
+### 32.1 v1.5 Scope
+
+v1.5 upgrades the operations console from action buttons to a richer interactive playground for core backend workflows:
+
+- manual draft creation
+- post metrics submission
+- manual comment creation
+
+### 32.2 v1.5 Implementation Added
+
+- Frontend API client additions:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+  - added:
+    - `createDraft(payload)`
+    - `createComment(payload)`
+- Frontend UI additions:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+  - added forms and actions for:
+    - `POST /drafts` (manual draft)
+    - `POST /posts/{id}/metrics` (metrics update)
+    - `POST /comments` (comment creation)
+  - improved publish panel with explicit URL input and metrics target selection
+- Styling support:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/styles/app.css`
+  - added form-grid and select styling for new controls
+- Test coverage expansion:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - suite expanded to `10` tests, now asserting endpoint calls for:
+    - create draft
+    - update metrics
+    - create comment
+
+### 32.3 v1.5 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`10/10`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 32.4 Remaining Constraints
+
+- Frontend now covers most daily operator actions, but some spec-level capabilities from `CLAUDE.md` remain backend-limited or not yet implemented end-to-end (e.g., WhatsApp/email operational channels and full external LinkedIn API write mode).

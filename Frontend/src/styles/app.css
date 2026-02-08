@@ -25,6 +25,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -188,6 +189,7 @@ button:disabled {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   margin-top: 4px;
@@ -200,6 +202,17 @@ textarea {
 label {
   font-size: 12px;
   color: var(--ink-muted);
+}
+
+.form-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.span-2 {
+  grid-column: span 2;
 }
 
 .code-block {
@@ -230,5 +243,13 @@ label {
   .panel:nth-child(3),
   .panel:nth-child(4) {
     grid-column: span 12;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
   }
 }

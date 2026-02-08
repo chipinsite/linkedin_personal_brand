@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import Panel from './components/Panel';
 import { api } from './services/api';
 
-const initialMetrics = { impressions: 1000, reactions: 40, comments_count: 8, shares: 3 };
+const METRIC_DEFAULTS = { impressions: 1000, reactions: 40, comments_count: 8, shares: 3 };
+const DRAFT_DEFAULTS = {
+  pillar_theme: 'Adtech fundamentals',
+  sub_theme: 'Programmatic buying',
+  format: 'TEXT',
+  tone: 'EDUCATIONAL',
+  content_body: 'A practical observation on Adtech execution and what teams can do differently this week.',
+  image_url: '',
+  carousel_document_url: '',
+};
 
 export default function App() {
   const [loading, setLoading] = useState(false);
@@ -27,6 +36,17 @@ export default function App() {
   const [rejectReason, setRejectReason] = useState('Not aligned with strategy');
   const [publishUrl, setPublishUrl] = useState('https://linkedin.com/feed/update/urn:li:activity:');
   const [feedInput, setFeedInput] = useState('https://digiday.com/feed/,https://www.adexchanger.com/feed/');
+
+  const [manualDraft, setManualDraft] = useState(DRAFT_DEFAULTS);
+  const [metricsTargetPostId, setMetricsTargetPostId] = useState('');
+  const [metricsInput, setMetricsInput] = useState(METRIC_DEFAULTS);
+  const [commentInput, setCommentInput] = useState({
+    published_post_id: '',
+    commenter_name: 'Test User',
+    comment_text: 'Great point. I would like to know how this applies to retail media.',
+    commenter_follower_count: 500,
+    commenter_profile_url: '',
+  });
 
   async function withAction(label, fn) {
     setLoading(true);
@@ -87,6 +107,16 @@ export default function App() {
     setAlignment(alignmentRes);
     setAuditLogs(auditsRes.slice(0, 12));
     setEngagementStatus(engagementRes);
+
+    const firstPostId = postsRes[0]?.id || '';
+    if (firstPostId) {
+      if (!metricsTargetPostId) {
+        setMetricsTargetPostId(firstPostId);
+      }
+      if (!commentInput.published_post_id) {
+        setCommentInput((prev) => ({ ...prev, published_post_id: firstPostId }));
+      }
+    }
   }
 
   useEffect(() => {
@@ -142,6 +172,69 @@ export default function App() {
             Reject reason
             <input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
           </label>
+          <div className="form-grid">
+            <label>
+              Pillar theme
+              <input
+                value={manualDraft.pillar_theme}
+                onChange={(e) => setManualDraft((prev) => ({ ...prev, pillar_theme: e.target.value }))}
+              />
+            </label>
+            <label>
+              Sub theme
+              <input
+                value={manualDraft.sub_theme}
+                onChange={(e) => setManualDraft((prev) => ({ ...prev, sub_theme: e.target.value }))}
+              />
+            </label>
+            <label>
+              Format
+              <select
+                value={manualDraft.format}
+                onChange={(e) => setManualDraft((prev) => ({ ...prev, format: e.target.value }))}
+              >
+                <option value="TEXT">TEXT</option>
+                <option value="IMAGE">IMAGE</option>
+                <option value="CAROUSEL">CAROUSEL</option>
+              </select>
+            </label>
+            <label>
+              Tone
+              <select
+                value={manualDraft.tone}
+                onChange={(e) => setManualDraft((prev) => ({ ...prev, tone: e.target.value }))}
+              >
+                <option value="EDUCATIONAL">EDUCATIONAL</option>
+                <option value="OPINIONATED">OPINIONATED</option>
+                <option value="DIRECT">DIRECT</option>
+                <option value="EXPLORATORY">EXPLORATORY</option>
+              </select>
+            </label>
+            <label className="span-2">
+              Content body
+              <textarea
+                rows={3}
+                value={manualDraft.content_body}
+                onChange={(e) => setManualDraft((prev) => ({ ...prev, content_body: e.target.value }))}
+              />
+            </label>
+            <div className="row-actions span-2">
+              <button
+                disabled={loading}
+                onClick={() =>
+                  withAction('Manual draft created', () =>
+                    api.createDraft({
+                      ...manualDraft,
+                      image_url: manualDraft.image_url || null,
+                      carousel_document_url: manualDraft.carousel_document_url || null,
+                    }),
+                  )
+                }
+              >
+                Create Draft
+              </button>
+            </div>
+          </div>
         </Panel>
 
         <Panel
@@ -149,6 +242,10 @@ export default function App() {
           action={<button disabled={loading} onClick={() => withAction('Due posts processed', () => api.publishDue())}>Run Due</button>}
         >
           <p>Posts tracked: {posts.length}</p>
+          <label>
+            LinkedIn post URL
+            <input value={publishUrl} onChange={(e) => setPublishUrl(e.target.value)} />
+          </label>
           <div className="list">
             {posts.slice(0, 5).map((post) => (
               <div className="list-row" key={post.id}>
@@ -165,6 +262,60 @@ export default function App() {
               </div>
             ))}
           </div>
+          <div className="form-grid">
+            <label>
+              Metrics post id
+              <select
+                value={metricsTargetPostId}
+                onChange={(e) => setMetricsTargetPostId(e.target.value)}
+              >
+                <option value="">Select post</option>
+                {posts.map((post) => (
+                  <option key={post.id} value={post.id}>{post.id}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Impressions
+              <input
+                type="number"
+                value={metricsInput.impressions}
+                onChange={(e) => setMetricsInput((prev) => ({ ...prev, impressions: Number(e.target.value || 0) }))}
+              />
+            </label>
+            <label>
+              Reactions
+              <input
+                type="number"
+                value={metricsInput.reactions}
+                onChange={(e) => setMetricsInput((prev) => ({ ...prev, reactions: Number(e.target.value || 0) }))}
+              />
+            </label>
+            <label>
+              Comments
+              <input
+                type="number"
+                value={metricsInput.comments_count}
+                onChange={(e) => setMetricsInput((prev) => ({ ...prev, comments_count: Number(e.target.value || 0) }))}
+              />
+            </label>
+            <label>
+              Shares
+              <input
+                type="number"
+                value={metricsInput.shares}
+                onChange={(e) => setMetricsInput((prev) => ({ ...prev, shares: Number(e.target.value || 0) }))}
+              />
+            </label>
+            <div className="row-actions span-2">
+              <button
+                disabled={loading || !metricsTargetPostId}
+                onClick={() => withAction('Post metrics updated', () => api.updateMetrics(metricsTargetPostId, metricsInput))}
+              >
+                Update metrics
+              </button>
+            </div>
+          </div>
         </Panel>
 
         <Panel
@@ -174,6 +325,60 @@ export default function App() {
           <p>Comments stored: {comments.length}</p>
           <p>Due for poll: {engagementStatus?.due_total ?? '-'}</p>
           <p>Active monitoring: {engagementStatus?.active_total ?? '-'}</p>
+          <div className="form-grid">
+            <label>
+              Comment post id
+              <select
+                value={commentInput.published_post_id}
+                onChange={(e) => setCommentInput((prev) => ({ ...prev, published_post_id: e.target.value }))}
+              >
+                <option value="">Select post</option>
+                {posts.map((post) => (
+                  <option key={post.id} value={post.id}>{post.id}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Commenter name
+              <input
+                value={commentInput.commenter_name}
+                onChange={(e) => setCommentInput((prev) => ({ ...prev, commenter_name: e.target.value }))}
+              />
+            </label>
+            <label>
+              Follower count
+              <input
+                type="number"
+                value={commentInput.commenter_follower_count}
+                onChange={(e) =>
+                  setCommentInput((prev) => ({ ...prev, commenter_follower_count: Number(e.target.value || 0) }))
+                }
+              />
+            </label>
+            <label className="span-2">
+              Comment text
+              <textarea
+                rows={2}
+                value={commentInput.comment_text}
+                onChange={(e) => setCommentInput((prev) => ({ ...prev, comment_text: e.target.value }))}
+              />
+            </label>
+            <div className="row-actions span-2">
+              <button
+                disabled={loading || !commentInput.published_post_id}
+                onClick={() =>
+                  withAction('Comment added', () =>
+                    api.createComment({
+                      ...commentInput,
+                      commenter_profile_url: commentInput.commenter_profile_url || null,
+                    }),
+                  )
+                }
+              >
+                Add Comment
+              </button>
+            </div>
+          </div>
         </Panel>
 
         <Panel

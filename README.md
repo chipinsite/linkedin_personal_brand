@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v1.4` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v1.5` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 

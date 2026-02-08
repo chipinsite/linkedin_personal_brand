@@ -32,6 +32,7 @@ export const api = {
   readiness: () => request('/health/readiness'),
 
   drafts: () => request('/drafts'),
+  createDraft: (payload) => request('/drafts', { method: 'POST', body: JSON.stringify(payload) }),
   generateDraft: () => request('/drafts/generate', { method: 'POST' }),
   approveDraft: (id) => request(`/drafts/${id}/approve`, { method: 'POST', body: JSON.stringify({}) }),
   rejectDraft: (id, reason) => request(`/drafts/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
@@ -46,6 +47,7 @@ export const api = {
   updateMetrics: (id, payload) => request(`/posts/${id}/metrics`, { method: 'POST', body: JSON.stringify(payload) }),
 
   comments: () => request('/comments'),
+  createComment: (payload) => request('/comments', { method: 'POST', body: JSON.stringify(payload) }),
   pollEngagement: () => request('/engagement/poll', { method: 'POST' }),
   engagementStatus: () => request('/engagement/status'),
 
