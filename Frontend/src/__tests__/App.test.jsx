@@ -105,8 +105,24 @@ function setupMockApi(overrides = {}) {
     }
     if (method === 'GET' && path === '/comments') return mockJson(state.comments);
     if (method === 'GET' && path === '/sources') return mockJson(state.sources);
+    if (method === 'POST' && path === '/sources/ingest') {
+      state.sources = [
+        {
+          id: `source-${state.sources.length + 1}`,
+          source_name: 'Digiday',
+          source_url: 'https://digiday.com/example',
+          title: 'Sample source',
+          summary: 'Summary',
+        },
+        ...state.sources,
+      ];
+      return mockJson({ created: 1, feeds_count: 1 });
+    }
     if (method === 'GET' && path === '/learning/weights') return mockJson(state.learning);
     if (method === 'GET' && path === '/reports/daily') return mockJson(state.report);
+    if (method === 'POST' && path === '/reports/daily/send') {
+      return mockJson({ sent: true, date: '2026-02-08' });
+    }
     if (method === 'GET' && path === '/admin/config') return mockJson(state.adminConfig);
     if (method === 'GET' && path === '/admin/algorithm-alignment') return mockJson(state.alignment);
     if (method === 'GET' && path === '/admin/audit-logs') return mockJson(state.auditLogs);
@@ -232,6 +248,35 @@ describe('App', () => {
         ),
       ).toBe(true);
       expect(screen.getByText('Manual publish confirmed')).toBeInTheDocument();
+    });
+  });
+
+  it('calls source ingest endpoint when Ingest is clicked', async () => {
+    const { calls } = setupMockApi({ sources: [] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Sources: 0')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ingest' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/sources/ingest')).toBe(true);
+      expect(screen.getByText('Sources ingested')).toBeInTheDocument();
+      expect(screen.getByText('Sources: 1')).toBeInTheDocument();
+    });
+  });
+
+  it('calls daily report send endpoint when Send is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/reports/daily/send')).toBe(true);
+      expect(screen.getByText('Daily report sent')).toBeInTheDocument();
     });
   });
 });

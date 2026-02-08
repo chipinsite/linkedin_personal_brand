@@ -1052,6 +1052,7 @@ All AI generated content must adhere to:
 | 1.1 | 2026-02-08 | Added frontend automated smoke testing harness (Vitest + Testing Library) and integrated tests into unified smoke execution |
 | 1.2 | 2026-02-08 | Expanded frontend automated tests to cover draft generate/reject action workflows and API call-path assertions |
 | 1.3 | 2026-02-08 | Expanded frontend automated tests to cover draft approve and manual publish confirmation action workflows |
+| 1.4 | 2026-02-08 | Expanded frontend automated tests to cover source ingest and daily report send action workflows |
 
 ---
 
@@ -1828,3 +1829,49 @@ Result:
 ### 30.4 Remaining Constraints
 
 - Frontend action tests still run against mocked network responses and do not replace full end-to-end runtime verification.
+
+---
+
+## 31. v1.4 Source and Report Action Coverage (2026-02-08)
+
+### 31.1 v1.4 Scope
+
+v1.4 extends frontend action workflow testing to source ingestion and report sending paths:
+
+- source ingest action path
+- daily report send action path
+
+### 31.2 v1.4 Implementation Added
+
+- Expanded frontend test suite in:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- Added mock handlers and assertions for:
+  - `POST /sources/ingest`
+  - `POST /reports/daily/send`
+- Added async stabilization in report send test by waiting for initial refresh completion before click.
+- Frontend test suite now covers 7 behaviors:
+  - render/load
+  - generate
+  - reject
+  - approve
+  - confirm publish
+  - ingest
+  - report send
+
+### 31.3 v1.4 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`7/7`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 31.4 Remaining Constraints
+
+- Action coverage remains mock-network component testing and does not yet include full browser/live-backend end-to-end coverage.

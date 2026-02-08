@@ -1178,3 +1178,79 @@ Frontend automated action coverage now includes generate, reject, approve, and c
 ### Next Steps
 - Add tests for source ingest and report send actions.
 - Add at least one live integration check against a running local backend/frontend pair.
+
+---
+
+## [2026-02-08 16:58 SAST] Build: v1.4 Source and Report Action Tests
+
+### Build Phase
+Post Build
+
+### Goal
+Expand frontend automation to cover data-ingest and reporting action workflows.
+
+### Context
+Continuation after v1.3; source ingest and report send paths are still uncovered.
+
+### Scope
+In scope:
+- Add tests for source ingest and daily report send actions
+- Assert corresponding API endpoint invocations
+- Update docs/logs and run validation chain
+Out of scope:
+- Backend service logic changes
+- End-to-end test infrastructure
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added source ingest action test asserting `POST /sources/ingest`
+- Added daily report send action test asserting `POST /reports/daily/send`
+- Added mock handlers in test harness for source ingest and report send paths
+- Fixed report send test timing by waiting for initial refresh completion before click
+- Expanded frontend test suite from 5 to 7 passing tests
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v1.4 version row and section 31
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` version status to v1.4
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+
+### Reasoning
+These are high-utility operator actions and complete core non-admin action-path test coverage.
+
+### Assumptions
+- Button labels for `Ingest` and `Send` remain stable.
+
+### Risks and Tradeoffs
+- Risk: tests may be brittle if UI text changes.
+- Mitigation: focus assertions on API path/method calls and success banner state.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified action tests assert endpoint method/path and success banners
+Result:
+- Frontend tests passed (`7` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend automated action coverage now includes source ingest and report send in addition to prior core lifecycle actions.
+
+### Confidence Rating
+9/10. Tests are deterministic and fully passing in the unified smoke pipeline; residual risk is limited to untested admin-toggle flows and live integration.
+
+### Known Gaps or Uncertainty
+- Admin control toggle actions are not yet covered by frontend tests.
+- Tests remain mocked-network component tests rather than full live runtime integration checks.
+
+### Next Steps
+- Add tests for admin kill switch/posting toggle actions.
+- Add one live integration check against a running backend/frontend stack.
