@@ -197,6 +197,10 @@ function setupMockApi(overrides = {}) {
   return { calls, state };
 }
 
+function openView(name) {
+  fireEvent.click(screen.getByRole('button', { name }));
+}
+
 describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -210,8 +214,8 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Data refreshed')).toBeInTheDocument();
-      expect(screen.getByText('Health: ok')).toBeInTheDocument();
-      expect(screen.getByText('Readiness: true')).toBeInTheDocument();
+      expect(screen.getByText(/Health: ok/)).toBeInTheDocument();
+      expect(screen.getByText(/Readiness: true/)).toBeInTheDocument();
     });
 
     expect(global.fetch).toHaveBeenCalled();
@@ -221,6 +225,7 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 0')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
@@ -245,16 +250,13 @@ describe('App', () => {
     const { calls } = setupMockApi({ drafts: [pendingDraft] });
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 1')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
 
     await waitFor(() => {
-      expect(
-        calls.some(
-          (call) => call.method === 'POST' && call.path === `/drafts/${pendingDraft.id}/reject`,
-        ),
-      ).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === `/drafts/${pendingDraft.id}/reject`)).toBe(true);
       expect(screen.getByText('Draft rejected')).toBeInTheDocument();
       expect(screen.getByText('Pending: 0')).toBeInTheDocument();
     });
@@ -273,16 +275,13 @@ describe('App', () => {
     const { calls } = setupMockApi({ drafts: [pendingDraft] });
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 1')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
-      expect(
-        calls.some(
-          (call) => call.method === 'POST' && call.path === `/drafts/${pendingDraft.id}/approve`,
-        ),
-      ).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === `/drafts/${pendingDraft.id}/approve`)).toBe(true);
       expect(screen.getByText('Draft approved')).toBeInTheDocument();
       expect(screen.getByText('Pending: 0')).toBeInTheDocument();
     });
@@ -298,18 +297,11 @@ describe('App', () => {
     const { calls } = setupMockApi({ posts: [post] });
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
-
+    await waitFor(() => expect(screen.getByText('Posts tracked')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Confirm publish' }));
 
     await waitFor(() => {
-      expect(
-        calls.some(
-          (call) =>
-            call.method === 'POST' &&
-            call.path === `/posts/${post.id}/confirm-manual-publish`,
-        ),
-      ).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === `/posts/${post.id}/confirm-manual-publish`)).toBe(true);
       expect(screen.getByText('Manual publish confirmed')).toBeInTheDocument();
     });
   });
@@ -319,7 +311,6 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByText('Sources: 0')).toBeInTheDocument());
-
     fireEvent.click(screen.getByRole('button', { name: 'Ingest' }));
 
     await waitFor(() => {
@@ -334,7 +325,6 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {
@@ -347,6 +337,7 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 0')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Draft' }));
@@ -368,7 +359,7 @@ describe('App', () => {
     const { calls } = setupMockApi({ posts: [post] });
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Posts tracked')).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText('Metrics post id'), { target: { value: post.id } });
     fireEvent.click(screen.getByRole('button', { name: 'Update metrics' }));
@@ -389,7 +380,8 @@ describe('App', () => {
     const { calls } = setupMockApi({ posts: [post] });
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Posts tracked: 1')).toBeInTheDocument());
+    openView('Engagement');
+    await waitFor(() => expect(screen.getByText('Comments stored')).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText('Comment post id'), { target: { value: post.id } });
     fireEvent.click(screen.getByRole('button', { name: 'Add Comment' }));
@@ -405,7 +397,6 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-
     fireEvent.click(screen.getByRole('button', { name: 'Run Due' }));
 
     await waitFor(() => {
@@ -418,6 +409,7 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
+    openView('Engagement');
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Poll' }));
@@ -432,7 +424,8 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute' }));
 
@@ -446,7 +439,8 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Kill ON' }));
 
@@ -460,7 +454,8 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Kill OFF' }));
 
@@ -474,7 +469,8 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Posting ON' }));
 
@@ -488,7 +484,8 @@ describe('App', () => {
     const { calls } = setupMockApi();
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Posting OFF' }));
 
@@ -535,6 +532,7 @@ describe('App', () => {
     });
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Draft in focus: 77777777')).toBeInTheDocument());
 
     expect(screen.getByText(/Hashtag count high/)).toBeInTheDocument();
@@ -560,8 +558,9 @@ describe('App', () => {
     });
     render(<App />);
 
+    openView('Engagement');
     await waitFor(() => expect(screen.getByText('Escalated comments: 1')).toBeInTheDocument());
-    expect(screen.getByText('PARTNERSHIP_SIGNAL')).toBeInTheDocument();
+    expect(screen.getByText(/PARTNERSHIP_SIGNAL/)).toBeInTheDocument();
     expect(screen.getByText('Industry Leader')).toBeInTheDocument();
   });
 
@@ -584,9 +583,10 @@ describe('App', () => {
     setupMockApi({ drafts: [draft] });
     render(<App />);
 
+    openView('Content');
     await waitFor(() => expect(screen.getByText('Draft in focus: 88888888')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy draft body' }));
+    fireEvent.click(screen.getByRole('button', { name: /Copy draft body/ }));
 
     await waitFor(() => {
       expect(clipboardWrite).toHaveBeenCalledWith('Copy me to LinkedIn manually.');

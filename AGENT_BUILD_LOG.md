@@ -1822,3 +1822,187 @@ Timezone edge cases around due-now may require backend-exposed normalized status
 - Add persisted operator preferences (e.g., default queue filter) if needed.
 
 ---
+## [2026-02-08 18:37 SAST] Build: v2.2 Frontend Redesign Integration
+
+### Build Phase
+Post Build
+
+### Goal
+Replace the existing frontend operations console with the new redesigned interface architecture from `autoposter-ui.jsx` while preserving existing API contracts and endpoint behavior.
+
+### Context
+User requested full frontend replacement with component extraction, view modularization, inline-style preservation, test adaptation, and successful `npm test`/`npm run build`.
+
+### Scope
+In scope:
+- Add Google font link to `Frontend/index.html`
+- Create `Frontend/src/constants/theme.js` from prototype constants/utils/icons
+- Create UI primitives (`StatusBadge`, `MetricCard`, `Button`, `ProgressBar`)
+- Create `Sidebar` layout component
+- Create view components (`DashboardView`, `ContentView`, `EngagementView`, `SettingsView`) using existing API methods
+- Replace `Frontend/src/App.jsx` with sidebar + active-view composition
+- Replace `Frontend/src/styles/app.css` with minimal reset
+- Update `Frontend/src/__tests__/App.test.jsx` to preserve endpoint/path assertions under new UI
+- Run frontend tests and production build
+Out of scope:
+- Backend changes
+- API service method contract changes
+- Non-requested feature additions beyond required mappings and integration
+
+### Planned Changes (Pre Build only)
+- Extract reusable constants, icons, and UI primitives from `autoposter-ui.jsx`
+- Implement API-backed data fetching/action handlers in each view using `api.js` exact method names
+- Keep inline style blocks for new UI components and views
+- Rewire App-level navigation to render active views
+- Update tests to navigate through sidebar and trigger existing endpoint actions under new UI labels
+- Execute `cd Frontend && npm test` and `cd Frontend && npm run build`
+
+### Actual Changes Made (Post Build only)
+- Added required Google Fonts link in `/Users/sphiwemawhayi/Personal Brand/Frontend/index.html` for `DM Sans` and `Instrument Serif`.
+- Added theme extraction files:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.jsx` with `C`, `formatDate`, `formatTime`, `truncate`, `pct`, and `Icons`.
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.js` re-export wrapper to preserve required import path.
+- Added UI primitives:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/StatusBadge.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/MetricCard.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/ProgressBar.jsx`
+- Added layout component:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- Added API-backed view components:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/ContentView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/EngagementView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+- Replaced `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` with sidebar + view switching architecture.
+- Replaced `/Users/sphiwemawhayi/Personal Brand/Frontend/src/styles/app.css` with the requested minimal global reset.
+- Refactored `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` to the new UI structure while preserving all 23 endpoint/path assertions and behavioral checks.
+- Fixed import-analysis parse issue by moving JSX exports from `theme.js` into `theme.jsx` and re-exporting from `theme.js`.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/index.html`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/styles/app.css`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.js`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/StatusBadge.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/MetricCard.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/ProgressBar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/ContentView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/EngagementView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+
+### Reasoning
+A modular extraction from the prototype allows a clean replacement without losing existing API pathways, and keeps future maintenance manageable while honoring the no-backend-change constraint.
+
+### Assumptions
+- `autoposter-ui.jsx` is the intended source of truth for the redesign structure and inline styling.
+- Existing API methods in `Frontend/src/services/api.js` remain callable and stable.
+- Existing tests should keep endpoint assertions but may need updated UI selectors due to layout changes.
+
+### Risks and Tradeoffs
+- Risk: redesigned UI labels/components may break test selectors.
+- Mitigation: update selectors while preserving endpoint/path assertions.
+- Tradeoff: replacing entire App structure in one pass increases integration risk.
+- Mitigation: keep API behavior parity and validate with full test/build runs.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+Manual checks:
+- Verified sidebar navigation renders all four views and actions trigger expected status banners.
+Result:
+- Frontend tests passed (`23/23`)
+- Frontend production build passed
+
+### Result
+Frontend UI is fully replaced by the new design system architecture with modular views and primitives, while existing API contracts and endpoint path behavior remain intact and validated.
+
+### Confidence Rating
+9/10. All required integration points and validations passed; residual risk is primarily around future visual parity refinements versus prototype nuances.
+
+### Known Gaps or Uncertainty
+- `Frontend/src/constants/theme.js` uses a re-export wrapper to satisfy both the required filename and JSX parser constraints.
+- Full visual equivalence to every minor spacing nuance in `autoposter-ui.jsx` was implemented by preserving inline style patterns, but exact pixel-level parity was not independently screenshot-diffed.
+
+### Next Steps
+- If needed, run a browser pass to verify responsive behavior across target widths.
+- If desired, decompose large view components into smaller domain subcomponents without changing endpoint behavior.
+
+---
+## [2026-02-08 18:51 SAST] Build: v2.2.1 Frontend Theme Parse Error Hotfix
+
+### Build Phase
+Post Build
+
+### Goal
+Resolve Vite import-analysis parse error for `Frontend/src/constants/theme.js` by ensuring no JSX exists in `.js` source.
+
+### Context
+User reported runtime overlay error at `theme.js:46` indicating JSX parse failure in a `.js` file.
+
+### Scope
+In scope:
+- Make `Frontend/src/constants/theme.js` valid JavaScript without JSX
+- Remove any redundant theme file indirection that could confuse module resolution
+- Re-run frontend test/build validation
+Out of scope:
+- Backend changes
+- API/service contract changes
+- UI behavior redesign
+
+### Planned Changes (Pre Build only)
+- Refactor `Icons` export in `theme.js` to use `React.createElement` (or equivalent) instead of JSX
+- Remove `theme.jsx` if no longer required
+- Run `cd Frontend && npm test` and `cd Frontend && npm run build`
+
+### Actual Changes Made (Post Build only)
+- Replaced `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.js` with pure JavaScript exports (no JSX syntax), including `Icons` built via `React.createElement`.
+- Removed `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.jsx` to eliminate extension indirection and stale module ambiguity.
+- Re-ran frontend validation (`npm test`, `npm run build`) after the hotfix.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.js`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/constants/theme.jsx` (deleted)
+
+### Reasoning
+Vite cannot parse JSX in `.js` during import analysis. Converting to pure JS removes the root parser failure independent of cache/server state.
+
+### Assumptions
+- The user is running the same workspace currently edited.
+- The reported overlay corresponds to a stale/invalid `theme.js` parse path.
+
+### Risks and Tradeoffs
+- Risk: icon rendering could regress if conversion is incorrect.
+- Mitigation: preserve full icon shapes and run test/build verification.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+Manual checks:
+- Confirmed `theme.js` contains no JSX tags and is parseable by Vite import analysis.
+Result:
+- Frontend tests passed (`23/23`)
+- Frontend production build passed
+
+### Result
+The frontend theme constants module is now valid `.js` for Vite import analysis, removing the JSX parse failure path.
+
+### Confidence Rating
+10/10. Parser root cause was removed directly and validation passed.
+
+### Known Gaps or Uncertainty
+- The user's currently running dev server may still hold stale module state from before the fix and may need restart.
+
+### Next Steps
+- Restart the dev server and hard refresh browser to clear stale HMR state.
+
+---
