@@ -3,6 +3,8 @@ import { api } from '../../services/api';
 import { C, pct } from '../../constants/theme';
 import Button from '../ui/Button';
 import ProgressBar from '../ui/ProgressBar';
+import LoadingSpinner from '../shared/LoadingSpinner';
+import ErrorMessage from '../shared/ErrorMessage';
 
 function parseWeightJSON(raw, fallback) {
   if (!raw) return fallback;
@@ -15,9 +17,11 @@ function parseWeightJSON(raw, fallback) {
 }
 
 export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   const [config, setConfig] = useState(null);
   const [learning, setLearning] = useState(null);
@@ -26,18 +30,23 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
   const [auditFilter, setAuditFilter] = useState('');
 
   async function refreshData() {
-    const [configRes, learningRes, alignmentRes, auditRes] = await Promise.all([
-      api.adminConfig(),
-      api.learningWeights(),
-      api.algorithmAlignment(),
-      api.auditLogs(),
-    ]);
-    setConfig(configRes);
-    setLearning(learningRes);
-    setAlignment(alignmentRes);
-    setAuditLogs(auditRes.slice(0, 8));
-    if (onConfigChange) {
-      onConfigChange(configRes);
+    setFetchError('');
+    try {
+      const [configRes, learningRes, alignmentRes, auditRes] = await Promise.all([
+        api.adminConfig(),
+        api.learningWeights(),
+        api.algorithmAlignment(),
+        api.auditLogs(),
+      ]);
+      setConfig(configRes);
+      setLearning(learningRes);
+      setAlignment(alignmentRes);
+      setAuditLogs(auditRes.slice(0, 8));
+      if (onConfigChange) {
+        onConfigChange(configRes);
+      }
+    } catch (err) {
+      setFetchError(String(err.message || err));
     }
   }
 
@@ -72,7 +81,11 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
   }
 
   useEffect(() => {
-    withAction('Data refreshed', refreshData);
+    (async () => {
+      await refreshData();
+      setInitialLoading(false);
+      setMessage('Data refreshed');
+    })();
   }, []);
 
   const formatWeights = parseWeightJSON(learning?.format_weights_json, {});
@@ -87,6 +100,14 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
       return haystack.includes(query);
     });
   }, [auditLogs, auditFilter]);
+
+  if (initialLoading) {
+    return <LoadingSpinner label="Loading settings..." />;
+  }
+
+  if (fetchError && !config) {
+    return <ErrorMessage error={`Failed to load settings: ${fetchError}`} onRetry={() => { setInitialLoading(true); refreshData().finally(() => setInitialLoading(false)); }} />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

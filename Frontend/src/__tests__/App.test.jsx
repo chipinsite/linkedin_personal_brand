@@ -218,9 +218,8 @@ describe('App', () => {
     setupMockApi();
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Execution Console' })).toBeInTheDocument();
-
     await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Execution Console' })).toBeInTheDocument();
       expect(screen.getByText('Data refreshed')).toBeInTheDocument();
       expect(screen.getByText(/Health: ok/)).toBeInTheDocument();
       expect(screen.getByText(/Readiness: true/)).toBeInTheDocument();
@@ -590,7 +589,7 @@ describe('App', () => {
     render(<App />);
 
     openView('Engagement');
-    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Comments stored')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Poll' }));
 
@@ -931,6 +930,195 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getAllByText('draft.generate').length).toBeGreaterThan(0);
       expect(screen.getByText(/engagement_bait/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading spinner on dashboard before data resolves', async () => {
+    let resolveHealth;
+    const pendingHealth = new Promise((resolve) => { resolveHealth = resolve; });
+    const { calls } = setupMockApi();
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/health') {
+        await pendingHealth;
+        return mockJson({ status: 'ok' });
+      }
+      return originalFetch(url, options);
+    });
+    render(<App />);
+
+    expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
+
+    await act(async () => { resolveHealth(); });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Execution Console' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows error state on dashboard when all APIs fail', async () => {
+    global.fetch = vi.fn(async () => {
+      throw new Error('Network down');
+    });
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load dashboard/)).toBeInTheDocument();
+      expect(screen.getByText(/Network down/)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('shows empty state on dashboard when no posts exist', async () => {
+    setupMockApi({ posts: [] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    expect(screen.getByText('No posts yet')).toBeInTheDocument();
+  });
+
+  it('shows loading spinner on content view before data resolves', async () => {
+    let resolveDrafts;
+    const pendingDrafts = new Promise((resolve) => { resolveDrafts = resolve; });
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let draftsCallCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/drafts' && (options?.method || 'GET').toUpperCase() === 'GET') {
+        draftsCallCount++;
+        if (draftsCallCount > 1) {
+          await pendingDrafts;
+          return mockJson([]);
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Content');
+
+    expect(screen.getByText('Loading content...')).toBeInTheDocument();
+
+    await act(async () => { resolveDrafts(); });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading content...')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Content Pipeline' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows error state on content view when API fails', async () => {
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let draftsGetCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/drafts' && (options?.method || 'GET').toUpperCase() === 'GET') {
+        draftsGetCount++;
+        if (draftsGetCount > 1) {
+          throw new Error('Drafts unavailable');
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Content');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load drafts/)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('shows empty state for pending drafts on content view', async () => {
+    setupMockApi({ drafts: [] });
+    render(<App />);
+
+    openView('Content');
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Content Pipeline' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No pending drafts')).toBeInTheDocument());
+  });
+
+  it('shows loading spinner on engagement view before data resolves', async () => {
+    let resolveComments;
+    const pendingComments = new Promise((resolve) => { resolveComments = resolve; });
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let commentsCallCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/comments' && (options?.method || 'GET').toUpperCase() === 'GET') {
+        commentsCallCount++;
+        if (commentsCallCount > 1) {
+          await pendingComments;
+          return mockJson([]);
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Engagement');
+
+    expect(screen.getByText('Loading engagement...')).toBeInTheDocument();
+
+    await act(async () => { resolveComments(); });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading engagement...')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Engagement' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows empty state for comments on engagement view', async () => {
+    setupMockApi({ comments: [] });
+    render(<App />);
+
+    openView('Engagement');
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Engagement' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No comments')).toBeInTheDocument());
+  });
+
+  it('shows loading spinner on settings view before data resolves', async () => {
+    let resolveConfig;
+    const pendingConfig = new Promise((resolve) => { resolveConfig = resolve; });
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let configCallCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/admin/config') {
+        configCallCount++;
+        if (configCallCount > 1) {
+          await pendingConfig;
+          return mockJson({
+            timezone: 'Africa/Johannesburg',
+            posting_enabled: true,
+            kill_switch: false,
+          });
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    openView('Settings');
+
+    expect(screen.getByText('Loading settings...')).toBeInTheDocument();
+
+    await act(async () => { resolveConfig(); });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading settings...')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     });
   });
 

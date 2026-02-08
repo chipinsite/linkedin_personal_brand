@@ -3,6 +3,9 @@ import { api } from '../../services/api';
 import { C, Icons, formatDate } from '../../constants/theme';
 import Button from '../ui/Button';
 import StatusBadge from '../ui/StatusBadge';
+import LoadingSpinner from '../shared/LoadingSpinner';
+import ErrorMessage from '../shared/ErrorMessage';
+import EmptyState from '../shared/EmptyState';
 
 const DRAFT_DEFAULTS = {
   pillar_theme: 'Adtech fundamentals',
@@ -37,9 +40,11 @@ function includesTopicHint(text, draft) {
 }
 
 export default function ContentView() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   const [drafts, setDrafts] = useState([]);
   const [selectedDraftId, setSelectedDraftId] = useState('');
@@ -47,10 +52,15 @@ export default function ContentView() {
   const [manualDraft, setManualDraft] = useState(DRAFT_DEFAULTS);
 
   async function refreshDrafts() {
-    const draftRes = await api.drafts();
-    setDrafts(draftRes);
-    if (!selectedDraftId && draftRes[0]?.id) {
-      setSelectedDraftId(draftRes[0].id);
+    setFetchError('');
+    try {
+      const draftRes = await api.drafts();
+      setDrafts(draftRes);
+      if (!selectedDraftId && draftRes[0]?.id) {
+        setSelectedDraftId(draftRes[0].id);
+      }
+    } catch (err) {
+      setFetchError(String(err.message || err));
     }
   }
 
@@ -70,7 +80,11 @@ export default function ContentView() {
   }
 
   useEffect(() => {
-    withAction('Data refreshed', refreshDrafts);
+    (async () => {
+      await refreshDrafts();
+      setInitialLoading(false);
+      setMessage('Data refreshed');
+    })();
   }, []);
 
   const pendingDrafts = useMemo(() => drafts.filter((d) => d.status === 'PENDING'), [drafts]);
@@ -112,6 +126,14 @@ export default function ContentView() {
     throw new Error('Clipboard API unavailable in this browser');
   }
 
+  if (initialLoading) {
+    return <LoadingSpinner label="Loading content..." />;
+  }
+
+  if (fetchError && drafts.length === 0) {
+    return <ErrorMessage error={`Failed to load drafts: ${fetchError}`} onRetry={() => { setInitialLoading(true); refreshDrafts().finally(() => setInitialLoading(false)); }} />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -126,6 +148,9 @@ export default function ContentView() {
 
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'grid', gap: '8px' }}>
         <div style={{ fontSize: '12px', color: C.textMuted }}>Pending: {pendingDrafts.length}</div>
+        {pendingDrafts.length === 0 ? (
+          <EmptyState title="No pending drafts" message="Click 'Generate' to create a new draft for review." />
+        ) : null}
         {pendingDrafts.slice(0, 5).map((draft) => (
           <div key={draft.id} style={{ border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

@@ -1072,6 +1072,7 @@ All AI generated content must adhere to:
 | 4.0 | 2026-02-08 | Finalised single-user operational release with full-state backup export and completion status |
 | 4.1 | 2026-02-08 | Hardened local startup: alembic DB fallback, CORS enablement, and reduced preflight requests |
 | 4.5 | 2026-02-09 | Added startup self-check for DB schema completeness and GET /health/db diagnostic endpoint with regression tests |
+| 4.6 | 2026-02-09 | Frontend component decomposition: shared loading/error/empty states, OperationalAlerts extraction, and expanded test coverage |
 
 ---
 
@@ -2969,3 +2970,66 @@ Result:
 
 - Startup check logs a warning but does not hard-crash the app; this allows dev workflows where tables are created lazily.
 - `GET /health/db` does not require authentication; consider adding read auth for production exposure.
+
+---
+
+## 55. v4.6 Frontend Component Decomposition and UX Resilience (2026-02-09)
+
+### 55.1 v4.6 Scope
+
+v4.6 improves frontend maintainability and user experience by decomposing views and adding consistent loading, error, and empty state handling:
+
+- extract shared UI components for loading, error, and empty states
+- extract OperationalAlerts from DashboardView into shared component
+- add loading spinner on initial view mount for all four views
+- add error state with retry for all four views when API fails
+- add empty state messaging for key data-dependent sections
+- expand frontend test suite with loading/error/empty coverage
+
+### 55.2 v4.6 Implementation Added
+
+- New shared components:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/LoadingSpinner.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/ErrorMessage.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/EmptyState.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/shared/OperationalAlerts.jsx`
+- View updates (all four):
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/ContentView.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/EngagementView.jsx`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+  - each view now has `initialLoading` and `fetchError` state
+  - `refreshData()` wrapped in try/catch with `setFetchError`
+  - initial `useEffect` changed from `withAction()` to direct async IIFE
+  - early returns for `LoadingSpinner` and `ErrorMessage` before main JSX
+  - empty state messaging for pending drafts, comments, and posts
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - 9 new tests covering:
+    - dashboard loading spinner, error state, empty posts state
+    - content loading spinner, error state, empty pending drafts
+    - engagement loading spinner, empty comments
+    - settings loading spinner
+- Version marker updated:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.6`
+
+### 55.3 v4.6 Validation Status
+
+Executed on 2026-02-09:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`31/31`)
+- frontend tests passed (`44/44`)
+- frontend production build passed
+- unified smoke run passed
+
+### 55.4 Remaining Constraints
+
+- Shared components use inline styles consistent with the existing codebase pattern.
+- Error retry resets `initialLoading` and re-fetches; no exponential backoff on client side.

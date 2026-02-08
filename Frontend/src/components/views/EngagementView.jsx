@@ -4,11 +4,16 @@ import { C } from '../../constants/theme';
 import Button from '../ui/Button';
 import MetricCard from '../ui/MetricCard';
 import StatusBadge from '../ui/StatusBadge';
+import LoadingSpinner from '../shared/LoadingSpinner';
+import ErrorMessage from '../shared/ErrorMessage';
+import EmptyState from '../shared/EmptyState';
 
 export default function EngagementView() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   const [comments, setComments] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -24,16 +29,21 @@ export default function EngagementView() {
   });
 
   async function refreshData() {
-    const [commentsRes, postsRes, engagementStatusRes] = await Promise.all([
-      api.comments(),
-      api.posts(),
-      api.engagementStatus(),
-    ]);
-    setComments(commentsRes);
-    setPosts(postsRes);
-    setEngagementStatus(engagementStatusRes);
-    if (!commentInput.published_post_id && postsRes[0]?.id) {
-      setCommentInput((prev) => ({ ...prev, published_post_id: postsRes[0].id }));
+    setFetchError('');
+    try {
+      const [commentsRes, postsRes, engagementStatusRes] = await Promise.all([
+        api.comments(),
+        api.posts(),
+        api.engagementStatus(),
+      ]);
+      setComments(commentsRes);
+      setPosts(postsRes);
+      setEngagementStatus(engagementStatusRes);
+      if (!commentInput.published_post_id && postsRes[0]?.id) {
+        setCommentInput((prev) => ({ ...prev, published_post_id: postsRes[0].id }));
+      }
+    } catch (err) {
+      setFetchError(String(err.message || err));
     }
   }
 
@@ -53,7 +63,10 @@ export default function EngagementView() {
   }
 
   useEffect(() => {
-    withAction('Data refreshed', refreshData);
+    (async () => {
+      await refreshData();
+      setInitialLoading(false);
+    })();
   }, []);
 
   const escalatedComments = useMemo(() => comments.filter((comment) => comment.escalated), [comments]);
@@ -62,6 +75,14 @@ export default function EngagementView() {
     if (filter === 'replied') return comments.filter((comment) => comment.auto_reply_sent);
     return comments;
   }, [comments, filter]);
+
+  if (initialLoading) {
+    return <LoadingSpinner label="Loading engagement..." />;
+  }
+
+  if (fetchError && comments.length === 0) {
+    return <ErrorMessage error={`Failed to load engagement: ${fetchError}`} onRetry={() => { setInitialLoading(true); refreshData().finally(() => setInitialLoading(false)); }} />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -106,6 +127,9 @@ export default function EngagementView() {
 
         <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
           <div style={{ fontSize: '12px', color: C.textMuted }}>Escalated comments: {escalatedComments.length}</div>
+          {filteredComments.length === 0 ? (
+            <EmptyState title="No comments" message="Comments will appear here once engagement polling detects them on published posts." />
+          ) : null}
           {filteredComments.map((comment) => (
             <div key={comment.id} style={{ background: C.bg, border: `1px solid ${comment.escalated ? 'rgba(248,113,113,0.2)' : C.border}`, borderRadius: '8px', padding: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>

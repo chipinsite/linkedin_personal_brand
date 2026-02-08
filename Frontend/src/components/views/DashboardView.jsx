@@ -3,6 +3,10 @@ import { api } from '../../services/api';
 import { C } from '../../constants/theme';
 import Button from '../ui/Button';
 import MetricCard from '../ui/MetricCard';
+import OperationalAlerts from '../shared/OperationalAlerts';
+import LoadingSpinner from '../shared/LoadingSpinner';
+import ErrorMessage from '../shared/ErrorMessage';
+import EmptyState from '../shared/EmptyState';
 
 const METRIC_DEFAULTS = { impressions: 1000, reactions: 40, comments_count: 8, shares: 3 };
 const ALERT_SNOOZE_KEY = 'app.dashboard.alertSnoozes';
@@ -19,15 +23,6 @@ function isDueNow(post) {
   return scheduledMs <= Date.now();
 }
 
-function formatSnoozeRemaining(ms) {
-  const safeMs = Math.max(0, Number(ms || 0));
-  const totalMinutes = Math.ceil(safeMs / 60_000);
-  if (totalMinutes >= 60) {
-    return `${Math.ceil(totalMinutes / 60)}h left`;
-  }
-  return `${totalMinutes}m left`;
-}
-
 function getCountdownTickMs() {
   if (typeof window !== 'undefined') {
     const configured = Number(window.__APP_ALERT_TICK_MS__);
@@ -39,9 +34,11 @@ function getCountdownTickMs() {
 }
 
 export default function DashboardView() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   const [health, setHealth] = useState(null);
   const [readiness, setReadiness] = useState(null);
@@ -75,28 +72,33 @@ export default function DashboardView() {
   });
 
   async function refreshData() {
-    const [healthRes, readinessRes, adminConfigRes, draftsRes, postsRes, commentsRes, sourcesRes, reportRes] = await Promise.all([
-      api.health(),
-      api.readiness(),
-      api.adminConfig(),
-      api.drafts(),
-      api.posts(),
-      api.comments(),
-      api.sources(),
-      api.dailyReport(),
-    ]);
+    setFetchError('');
+    try {
+      const [healthRes, readinessRes, adminConfigRes, draftsRes, postsRes, commentsRes, sourcesRes, reportRes] = await Promise.all([
+        api.health(),
+        api.readiness(),
+        api.adminConfig(),
+        api.drafts(),
+        api.posts(),
+        api.comments(),
+        api.sources(),
+        api.dailyReport(),
+      ]);
 
-    setHealth(healthRes);
-    setReadiness(readinessRes);
-    setAdminConfig(adminConfigRes);
-    setDrafts(draftsRes);
-    setPosts(postsRes);
-    setComments(commentsRes);
-    setSources(sourcesRes);
-    setReport(reportRes);
+      setHealth(healthRes);
+      setReadiness(readinessRes);
+      setAdminConfig(adminConfigRes);
+      setDrafts(draftsRes);
+      setPosts(postsRes);
+      setComments(commentsRes);
+      setSources(sourcesRes);
+      setReport(reportRes);
 
-    if (!metricsTargetPostId && postsRes[0]?.id) {
-      setMetricsTargetPostId(postsRes[0].id);
+      if (!metricsTargetPostId && postsRes[0]?.id) {
+        setMetricsTargetPostId(postsRes[0].id);
+      }
+    } catch (err) {
+      setFetchError(String(err.message || err));
     }
   }
 
@@ -116,7 +118,11 @@ export default function DashboardView() {
   }
 
   useEffect(() => {
-    withAction('Data refreshed', refreshData);
+    (async () => {
+      await refreshData();
+      setInitialLoading(false);
+      setMessage('Data refreshed');
+    })();
   }, []);
 
   useEffect(() => {
@@ -226,6 +232,7 @@ export default function DashboardView() {
     }
     return alerts;
   }, [adminConfig, publishQueueSummary.dueNow, escalatedCount]);
+
   const visibleOperationalAlerts = (() => {
     const now = nowMs;
     return operationalAlerts.filter((alert) => {
@@ -233,6 +240,7 @@ export default function DashboardView() {
       return !until || until <= now;
     });
   })();
+
   const snoozedOperationalAlerts = (() => {
     const now = nowMs;
     return operationalAlerts
@@ -240,16 +248,6 @@ export default function DashboardView() {
       .filter((alert) => alert.snoozedUntil > now)
       .sort((a, b) => a.snoozedUntil - b.snoozedUntil);
   })();
-
-  function alertStyle(tone) {
-    if (tone === 'critical') {
-      return { bg: C.dangerMuted, color: C.danger };
-    }
-    if (tone === 'warning') {
-      return { bg: C.warningMuted, color: C.warning };
-    }
-    return { bg: C.infoMuted, color: C.info };
-  }
 
   function snoozeAlert(alertId) {
     setAlertSnoozes((prev) => ({
@@ -260,6 +258,14 @@ export default function DashboardView() {
 
   function clearSnoozes() {
     setAlertSnoozes({});
+  }
+
+  if (initialLoading) {
+    return <LoadingSpinner label="Loading dashboard..." />;
+  }
+
+  if (fetchError && !health) {
+    return <ErrorMessage error={`Failed to load dashboard: ${fetchError}`} onRetry={() => { setInitialLoading(true); refreshData().then(() => setInitialLoading(false)).catch(() => setInitialLoading(false)); }} />;
   }
 
   return (
@@ -289,48 +295,13 @@ export default function DashboardView() {
         <MetricCard label="Sources" value={sources.length} />
       </div>
 
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'grid', gap: '10px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '13px', color: C.text, fontWeight: 600 }}>Operational Alerts</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', color: C.textMuted }}>{visibleOperationalAlerts.length} active</span>
-            {snoozedOperationalAlerts.length > 0 ? (
-              <Button size="sm" variant="default" onClick={clearSnoozes}>Clear Snoozes</Button>
-            ) : null}
-          </div>
-        </div>
-        {snoozedOperationalAlerts.length > 0 ? (
-          <div style={{ fontSize: '12px', color: C.textMuted }}>
-            <strong style={{ color: C.text }}>Snoozed alerts: {snoozedOperationalAlerts.length}</strong>
-            {' '}
-            {snoozedOperationalAlerts.map((alert) => (
-              <span key={alert.id} style={{ marginRight: '8px' }}>
-                {alert.id}: {formatSnoozeRemaining(alert.snoozedUntil - nowMs)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {visibleOperationalAlerts.length === 0 ? (
-          <div style={{ fontSize: '12px', color: C.textMuted }}>No active operational alerts.</div>
-        ) : (
-          visibleOperationalAlerts.map((alert) => {
-            const style = alertStyle(alert.tone);
-            return (
-              <div key={alert.id} style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
-                <span>{alert.message}</span>
-                <Button
-                  size="sm"
-                  variant="default"
-                  aria-label={`Snooze ${alert.id}`}
-                  onClick={() => snoozeAlert(alert.id)}
-                >
-                  Snooze 2h
-                </Button>
-              </div>
-            );
-          })
-        )}
-      </div>
+      <OperationalAlerts
+        visibleAlerts={visibleOperationalAlerts}
+        snoozedAlerts={snoozedOperationalAlerts}
+        nowMs={nowMs}
+        onSnooze={snoozeAlert}
+        onClearSnoozes={clearSnoozes}
+      />
 
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -364,17 +335,24 @@ export default function DashboardView() {
           </select>
         </label>
 
-        <div style={{ display: 'grid', gap: '8px' }}>
-          {filteredPosts.slice(0, 5).map((post) => (
-            <div key={post.id} style={{ border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: C.textMuted }}>
-                <strong style={{ color: C.text }}>{post.id.slice(0, 8)}</strong>
-                <div>Published: {post.published_at ? 'yes' : 'no'}{isDueNow(post) ? ' • due now' : ''}</div>
+        {posts.length === 0 ? (
+          <EmptyState
+            title="No posts yet"
+            message="Generate and approve a draft to create your first post. Use 'Bootstrap demo' for a quick start."
+          />
+        ) : (
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {filteredPosts.slice(0, 5).map((post) => (
+              <div key={post.id} style={{ border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', color: C.textMuted }}>
+                  <strong style={{ color: C.text }}>{post.id.slice(0, 8)}</strong>
+                  <div>Published: {post.published_at ? 'yes' : 'no'}{isDueNow(post) ? ' \u00b7 due now' : ''}</div>
+                </div>
+                <Button disabled={loading} size="sm" onClick={() => withAction('Manual publish confirmed', () => api.confirmPublish(post.id, `${publishUrl}${Date.now()}`))}>Confirm publish</Button>
               </div>
-              <Button disabled={loading} size="sm" onClick={() => withAction('Manual publish confirmed', () => api.confirmPublish(post.id, `${publishUrl}${Date.now()}`))}>Confirm publish</Button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '8px' }}>
           <label style={{ fontSize: '12px', color: C.textMuted, display: 'grid', gap: '4px' }}>

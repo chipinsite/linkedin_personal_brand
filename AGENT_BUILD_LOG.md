@@ -147,6 +147,100 @@ Backend now validates DB schema completeness on startup and provides a diagnosti
 2. Proceed to Phase 2 (v4.6 Frontend Hardening)
 
 ---
+## [2026-02-09 01:00 SAST] Build: v4.6 Frontend Component Decomposition and UX Resilience
+
+### Build Phase
+Post Build
+
+### Goal
+Break down oversized frontend views into smaller reusable components. Add empty state, loading, and error handling UX for all API-dependent views.
+
+### Context
+Phase 2 of multi-phase plan. DashboardView.jsx (442 lines) exceeds 200-line threshold. Views currently show blank screens on empty data and have no loading or error indicators beyond action messages.
+
+### Scope
+In scope:
+- Extract reusable shared components from DashboardView.jsx (OperationalAlerts)
+- Create shared EmptyState, LoadingSpinner, and ErrorMessage components
+- Add empty state guidance for key views when no data exists
+- Add loading indicators during initial data fetch
+- Handle API fetch failures gracefully with inline error + retry
+- Add frontend tests for new empty/loading/error states
+- Version bumps
+
+Out of scope:
+- Backend changes
+- New npm dependencies
+- Visual regression or screenshot testing
+- Further DashboardView decomposition (PublishingQueue, SourcesPanel) deferred to avoid over-decomposition
+
+### Planned Changes
+1. Create shared UI components: EmptyState, LoadingSpinner, ErrorMessage in Frontend/src/components/shared/
+2. Extract OperationalAlerts from DashboardView into shared component
+3. Add loading state in all four views during initial fetch
+4. Add error state with retry in all four views
+5. Add empty state for zero-data scenarios
+6. Add tests covering empty state, loading state, error state rendering
+
+### Actual Changes Made (Post Build only)
+1. Created 4 shared components: LoadingSpinner, ErrorMessage, EmptyState, OperationalAlerts
+2. Rewrote DashboardView with initialLoading/fetchError state, extracted OperationalAlerts
+3. Updated ContentView with initialLoading/fetchError, empty state for pending drafts
+4. Updated EngagementView with initialLoading/fetchError, empty state for comments
+5. Updated SettingsView with initialLoading/fetchError
+6. Changed all four views from withAction-based initial load to async IIFE pattern
+7. Added 9 new frontend tests for loading spinners, error states, and empty states
+8. Fixed 1 existing test that relied on immediate heading visibility (now behind loading spinner)
+9. Fixed 1 existing test that expected 'Data refreshed' message in engagement view (no longer set)
+
+### Files Touched
+- Frontend/src/components/shared/LoadingSpinner.jsx (new)
+- Frontend/src/components/shared/ErrorMessage.jsx (new)
+- Frontend/src/components/shared/EmptyState.jsx (new)
+- Frontend/src/components/shared/OperationalAlerts.jsx (new)
+- Frontend/src/components/views/DashboardView.jsx (modified)
+- Frontend/src/components/views/ContentView.jsx (modified)
+- Frontend/src/components/views/EngagementView.jsx (modified)
+- Frontend/src/components/views/SettingsView.jsx (modified)
+- Frontend/src/components/layout/Sidebar.jsx (version bump to v4.6)
+- Frontend/src/__tests__/App.test.jsx (expanded: 35 -> 44 tests)
+- CLAUDE.md (section 55 added, version history updated)
+
+### Reasoning
+Component decomposition improves maintainability and testability. UX resilience prevents blank/broken screens which confuse the operator. Deferred PublishingQueue/SourcesPanel extraction because DashboardView remained coherent at ~420 lines and the main complexity was in OperationalAlerts.
+
+### Assumptions
+- Existing test patterns can be extended with fetch rejection mocks (confirmed)
+- Shared components can be pure/presentational without own data fetching (confirmed)
+
+### Risks and Tradeoffs
+- Risk: extracting components may break existing tests due to DOM structure changes. Mitigation: ran full test suite after each extraction. 2 existing tests required adjustment.
+- Risk: over-decomposition can harm readability. Mitigation: only extracted OperationalAlerts which was the largest self-contained section.
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` (31/31 passed)
+- `cd Frontend && npm test -- --run` (44/44 passed)
+- `cd Frontend && npm run build` (success)
+- `./scripts/v1_smoke.sh` (all passed)
+Manual checks: N/A
+Result: All pass
+
+### Result
+Success
+
+### Confidence Rating
+High
+
+### Known Gaps or Uncertainty
+- DashboardView is still 420 lines. Further decomposition (PublishingQueue, SourcesPanel) could be done if it grows.
+- No exponential backoff on client-side error retry.
+
+### Next Steps
+1. Phase 3: Operational Maturity (v4.7)
+2. Phase 4: Accessibility and Polish (v4.8)
+
+---
 ## [2026-02-08 21:28 SAST] Build: End-of-Day Handover Document
 
 ### Build Phase
