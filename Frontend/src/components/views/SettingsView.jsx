@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { C, pct } from '../../constants/theme';
 import Button from '../ui/Button';
@@ -23,6 +23,7 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
   const [learning, setLearning] = useState(null);
   const [alignment, setAlignment] = useState(null);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [auditFilter, setAuditFilter] = useState('');
 
   async function refreshData() {
     const [configRes, learningRes, alignmentRes, auditRes] = await Promise.all([
@@ -61,6 +62,16 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
 
   const formatWeights = parseWeightJSON(learning?.format_weights_json, {});
   const toneWeights = parseWeightJSON(learning?.tone_weights_json, {});
+  const filteredAuditLogs = useMemo(() => {
+    const query = auditFilter.trim().toLowerCase();
+    if (!query) {
+      return auditLogs;
+    }
+    return auditLogs.filter((row) => {
+      const haystack = `${row.action || ''} ${row.actor || ''} ${row.resource_type || ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [auditLogs, auditFilter]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -150,11 +161,23 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
           <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, display: 'block', marginBottom: '12px' }}>
             Audit Trail
           </span>
+          <label style={{ fontSize: '12px', color: C.textMuted, display: 'grid', gap: '4px', marginBottom: '8px' }}>
+            Audit filter
+            <input
+              aria-label="Audit filter"
+              value={auditFilter}
+              onChange={(e) => setAuditFilter(e.target.value)}
+              placeholder="Filter by action, actor, or resource"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: '6px', padding: '8px' }}
+            />
+          </label>
           <div style={{ display: 'grid', gap: '8px' }}>
-            {auditLogs.length === 0 ? (
-              <span style={{ fontSize: '12px', color: C.textDim }}>No audit entries yet.</span>
+            {filteredAuditLogs.length === 0 ? (
+              <span style={{ fontSize: '12px', color: C.textDim }}>
+                {auditLogs.length === 0 ? 'No audit entries yet.' : 'No entries match this filter.'}
+              </span>
             ) : (
-              auditLogs.map((row) => (
+              filteredAuditLogs.map((row) => (
                 <div key={row.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '8px' }}>
                   <div style={{ fontSize: '12px', color: C.text }}>{row.action}</div>
                   <div style={{ fontSize: '11px', color: C.textDim }}>

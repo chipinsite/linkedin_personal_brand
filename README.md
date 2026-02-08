@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v2.5` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v2.6` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -109,6 +109,7 @@ At `http://127.0.0.1:5173`:
 - run `Poll`, `Ingest`, `Recompute`, and `Send`
 - test `Kill ON/OFF` and `Posting ON/OFF`
 - use `Settings` to inspect `Algorithm Alignment` and recent `Audit Trail` entries
+- use `Audit filter` in `Settings` to narrow entries by action/actor/resource
 
 ## Alignment rule
 

@@ -2262,3 +2262,84 @@ Redesigned UI now restores critical ops visibility by surfacing alignment postur
 - Add optional audit filter controls if operational volume increases.
 
 ---
+
+## [2026-02-08 19:37 SAST] Build: v2.6 Audit Filter Controls
+
+### Build Phase
+Post Build
+
+### Goal
+Improve Settings operability by adding quick filtering for audit trail entries.
+
+### Context
+v2.5 restored audit visibility but lacks filtering; this is now the highest-impact UI usability gap for operations review.
+
+### Scope
+In scope:
+- Add audit filter input in Settings
+- Filter visible audit entries by action/actor/resource values
+- Add tests for filter behavior
+- Update version/docs/build log
+Out of scope:
+- Backend endpoint changes
+- Full pagination or server-side search
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`:
+- added `Audit filter` input and case-insensitive filter logic
+- filter now matches `action`, `actor`, and `resource_type`
+- added filtered-empty state message (`No entries match this filter.`)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added audit filter behavior test
+- retained alignment/audit visibility coverage
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v2.6`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v2.6 documentation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A lightweight client-side filter gives immediate value for operators scanning recent activity, without introducing backend complexity.
+
+### Assumptions
+- Audit items include `action`, `actor`, and `resource_type` fields.
+
+### Risks and Tradeoffs
+- Risk: client-side filtering only applies to currently fetched records.
+- Mitigation: keep scope explicit and consider pagination/search later.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified Settings audit list narrows correctly when filter input is applied.
+Result:
+- Frontend tests passed (`28/28`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Settings now supports quick audit narrowing for faster operational review without leaving the console.
+
+### Confidence Rating
+9/10. Filter behavior is deterministic, covered by automated tests, and validated in full smoke run; residual limitation is local-only filtering scope.
+
+### Known Gaps or Uncertainty
+- Audit filtering applies only to the recent subset currently loaded client-side.
+
+### Next Steps
+- Add lightweight browser E2E play-mode runner for critical view/action workflows.
+- Consider server-side audit pagination/search if audit volumes increase.
+
+---

@@ -754,4 +754,38 @@ describe('App', () => {
       expect(screen.getByText(/engagement_bait/)).toBeInTheDocument();
     });
   });
+
+  it('filters audit trail entries in settings by query', async () => {
+    setupMockApi({
+      auditLogs: [
+        {
+          id: 'audit-1',
+          created_at: '2026-02-08T10:00:00Z',
+          actor: 'api',
+          action: 'draft.generate',
+          resource_type: 'draft',
+        },
+        {
+          id: 'audit-2',
+          created_at: '2026-02-08T10:05:00Z',
+          actor: 'worker',
+          action: 'report.daily.send',
+          resource_type: 'report',
+        },
+      ],
+    });
+    render(<App />);
+
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('Audit Trail')).toBeInTheDocument());
+    expect(screen.getByText('draft.generate')).toBeInTheDocument();
+    expect(screen.getByText('report.daily.send')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Audit filter'), { target: { value: 'worker' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText('draft.generate')).not.toBeInTheDocument();
+      expect(screen.getByText('report.daily.send')).toBeInTheDocument();
+    });
+  });
 });

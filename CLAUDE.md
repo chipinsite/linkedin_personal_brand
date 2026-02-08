@@ -1063,6 +1063,7 @@ All AI generated content must adhere to:
 | 2.3 | 2026-02-08 | Added persisted operator UI preferences (active view and queue filter) with reload-state tests |
 | 2.4 | 2026-02-08 | Added Settings control to reset persisted UI preferences with coverage for reset behavior |
 | 2.5 | 2026-02-08 | Restored algorithm alignment and audit trail visibility in Settings with coverage |
+| 2.6 | 2026-02-08 | Added Settings audit filter controls and filtering test coverage |
 
 ---
 
@@ -2340,3 +2341,49 @@ Result:
 ### 41.4 Remaining Constraints
 
 - Alignment/audit panels are read-only visibility views and rely on backend as source of truth.
+
+---
+
+## 42. v2.6 Settings Audit Filtering (2026-02-08)
+
+### 42.1 v2.6 Scope
+
+v2.6 improves Settings audit usability with quick client-side filtering:
+
+- filter audit entries by action/actor/resource
+- maintain compact, recent-entry audit panel
+
+### 42.2 v2.6 Implementation Added
+
+- Updated settings view:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+  - added `Audit filter` input
+  - added case-insensitive client-side matching across:
+    - `action`
+    - `actor`
+    - `resource_type`
+  - added empty-filter result message (`No entries match this filter.`)
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v2.6`
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added audit filter behavior test
+
+### 42.3 v2.6 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`28/28`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 42.4 Remaining Constraints
+
+- Filtering is local to the currently fetched audit subset and does not perform backend search/pagination.
