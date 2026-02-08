@@ -1062,6 +1062,7 @@ All AI generated content must adhere to:
 | 2.1 | 2026-02-08 | Added publishing queue filters and queue-state summaries in frontend with expanded tests |
 | 2.3 | 2026-02-08 | Added persisted operator UI preferences (active view and queue filter) with reload-state tests |
 | 2.4 | 2026-02-08 | Added Settings control to reset persisted UI preferences with coverage for reset behavior |
+| 2.5 | 2026-02-08 | Restored algorithm alignment and audit trail visibility in Settings with coverage |
 
 ---
 
@@ -2294,3 +2295,48 @@ Result:
 ### 40.4 Remaining Constraints
 
 - Reset applies only to browser-local UI preferences and does not affect backend runtime state.
+
+---
+
+## 41. v2.5 Settings Operations Visibility (2026-02-08)
+
+### 41.1 v2.5 Scope
+
+v2.5 restores operations observability in the redesigned UI:
+
+- algorithm alignment visibility
+- recent audit trail visibility
+
+### 41.2 v2.5 Implementation Added
+
+- Updated settings view:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+  - fetches and renders:
+    - `GET /admin/algorithm-alignment`
+    - `GET /admin/audit-logs`
+  - limits displayed audit entries to recent records for readability
+- Updated sidebar version marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - set to `v2.5`
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - fixed mock override support for `auditLogs`
+  - added visibility test for alignment/audit sections
+
+### 41.3 v2.5 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`27/27`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 41.4 Remaining Constraints
+
+- Alignment/audit panels are read-only visibility views and rely on backend as source of truth.

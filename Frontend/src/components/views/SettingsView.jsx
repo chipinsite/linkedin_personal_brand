@@ -21,11 +21,20 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
 
   const [config, setConfig] = useState(null);
   const [learning, setLearning] = useState(null);
+  const [alignment, setAlignment] = useState(null);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   async function refreshData() {
-    const [configRes, learningRes] = await Promise.all([api.adminConfig(), api.learningWeights()]);
+    const [configRes, learningRes, alignmentRes, auditRes] = await Promise.all([
+      api.adminConfig(),
+      api.learningWeights(),
+      api.algorithmAlignment(),
+      api.auditLogs(),
+    ]);
     setConfig(configRes);
     setLearning(learningRes);
+    setAlignment(alignmentRes);
+    setAuditLogs(auditRes.slice(0, 8));
     if (onConfigChange) {
       onConfigChange(configRes);
     }
@@ -112,6 +121,49 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
               <ProgressBar value={Number(value || 0) * 100} />
             </div>
           ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '20px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, display: 'block', marginBottom: '12px' }}>
+            Algorithm Alignment
+          </span>
+          <pre
+            style={{
+              margin: 0,
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              borderRadius: '6px',
+              padding: '10px',
+              fontSize: '11px',
+              color: C.textMuted,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {JSON.stringify(alignment || {}, null, 2)}
+          </pre>
+        </div>
+
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '20px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, display: 'block', marginBottom: '12px' }}>
+            Audit Trail
+          </span>
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {auditLogs.length === 0 ? (
+              <span style={{ fontSize: '12px', color: C.textDim }}>No audit entries yet.</span>
+            ) : (
+              auditLogs.map((row) => (
+                <div key={row.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '8px' }}>
+                  <div style={{ fontSize: '12px', color: C.text }}>{row.action}</div>
+                  <div style={{ fontSize: '11px', color: C.textDim }}>
+                    {row.actor} · {row.resource_type}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

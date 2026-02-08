@@ -51,7 +51,7 @@ function createApiState(overrides = {}) {
       kill_switch: false,
     },
     alignment: { enforced: { engagement_bait: 'blocked' } },
-    auditLogs: [],
+    auditLogs: overrides.auditLogs ?? [],
     engagementStatus: { monitored_total: 0, active_total: 0, due_total: 0 },
     baseDraft,
   };
@@ -729,5 +729,29 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByDisplayValue('All')).toBeInTheDocument());
     expect(localStorage.getItem('app.activeView')).toBe('dashboard');
     expect(localStorage.getItem('app.dashboard.publishFilter')).toBe('all');
+  });
+
+  it('shows algorithm alignment and recent audit entries in settings', async () => {
+    setupMockApi({
+      alignment: { enforced: { engagement_bait: 'blocked', external_links: 'blocked' } },
+      auditLogs: [
+        {
+          id: 'audit-1',
+          created_at: '2026-02-08T10:00:00Z',
+          actor: 'api',
+          action: 'draft.generate',
+          resource_type: 'draft',
+        },
+      ],
+    });
+    render(<App />);
+
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('Algorithm Alignment')).toBeInTheDocument());
+    expect(screen.getByText('Audit Trail')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText('draft.generate').length).toBeGreaterThan(0);
+      expect(screen.getByText(/engagement_bait/)).toBeInTheDocument();
+    });
   });
 });

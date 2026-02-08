@@ -2182,3 +2182,83 @@ Operators can now recover quickly from undesired persisted UI states via an in-a
 - Continue closing remaining non-UI integration gaps toward full operational parity.
 
 ---
+
+## [2026-02-08 19:29 SAST] Build: v2.5 Settings Ops Visibility
+
+### Build Phase
+Post Build
+
+### Goal
+Restore operations visibility in the redesigned UI by surfacing algorithm-alignment status and recent audit logs.
+
+### Context
+Autonomous progression toward 90% usable target; redesigned Settings view currently lacks alignment and audit visibility that existed in earlier console versions.
+
+### Scope
+In scope:
+- Add algorithm alignment display in Settings
+- Add recent audit log display in Settings
+- Extend frontend tests to cover new visibility
+- Update version/docs/build logs
+Out of scope:
+- Backend API changes
+- Auth model changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`:
+- added fetch/display for algorithm alignment and recent audit logs
+- rendered compact read-only panels for operations visibility
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- version marker set to `v2.5`
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added settings visibility test for alignment/audit sections
+- fixed mock state override support for `auditLogs`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v2.5.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Operators need trust and control visibility from one place; exposing alignment posture and audit trail improves observability and compliance confidence.
+
+### Assumptions
+- Existing API responses for alignment and audit logs are stable and already available in frontend client.
+
+### Risks and Tradeoffs
+- Risk: verbose JSON output could reduce readability.
+- Mitigation: constrain log count and use compact formatting.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Confirmed `Settings` now displays both alignment snapshot and recent audit items.
+Result:
+- Frontend tests passed (`27/27`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Redesigned UI now restores critical ops visibility by surfacing alignment posture and audit activity directly in Settings.
+
+### Confidence Rating
+9/10. Behavior is covered by tests and smoke validation; residual risk is limited to readability scaling for very large audit payloads.
+
+### Known Gaps or Uncertainty
+- Panels currently show a compact subset and do not yet support pagination or filtering.
+
+### Next Steps
+- Add lightweight browser E2E play-mode runner for critical flows.
+- Add optional audit filter controls if operational volume increases.
+
+---
