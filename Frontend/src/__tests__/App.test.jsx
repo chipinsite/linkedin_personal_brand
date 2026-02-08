@@ -1,7 +1,27 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from '../App';
+import { AuthProvider } from '../contexts/AuthContext';
 
 const ALERT_SNOOZE_KEY = 'app.dashboard.alertSnoozes';
+
+// Mock user for authenticated tests
+const mockUser = {
+  id: 'test-user-id',
+  email: 'test@example.com',
+  username: 'testuser',
+  full_name: 'Test User',
+  is_active: true,
+  is_superuser: false,
+};
+
+// Wrapper component that provides auth context
+function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
 
 function mockJson(data) {
   return Promise.resolve({
@@ -64,11 +84,22 @@ function setupMockApi(overrides = {}) {
   const state = createApiState(overrides);
   const calls = [];
 
+  // Set up mock auth tokens in localStorage for authenticated state
+  localStorage.setItem('auth.accessToken', 'mock-access-token');
+  localStorage.setItem('auth.refreshToken', 'mock-refresh-token');
+
   global.fetch = vi.fn(async (url, options = {}) => {
     const parsed = new URL(url);
     const method = (options.method || 'GET').toUpperCase();
     const path = parsed.pathname;
     calls.push({ method, path, body: options.body || null });
+
+    // Auth endpoints
+    if (method === 'GET' && path === '/auth/me') return mockJson(mockUser);
+    if (method === 'POST' && path === '/auth/refresh') {
+      return mockJson({ access_token: 'new-mock-access-token', token_type: 'bearer' });
+    }
+    if (method === 'POST' && path === '/auth/logout') return mockJson({ message: 'Logged out' });
 
     if (method === 'GET' && path === '/health') return mockJson({ status: 'ok' });
     if (method === 'GET' && path === '/health/deep') {
@@ -203,7 +234,9 @@ function setupMockApi(overrides = {}) {
   return { calls, state };
 }
 
-function openView(name) {
+async function openView(name) {
+  // Wait for auth to complete and dashboard to load before switching views
+  await waitFor(() => expect(screen.getByRole('button', { name })).toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name }));
 }
 
@@ -216,7 +249,7 @@ describe('App', () => {
 
   it('renders dashboard and loads initial data', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Execution Console' })).toBeInTheDocument();
@@ -255,7 +288,7 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('4 active')).toBeInTheDocument();
@@ -267,7 +300,7 @@ describe('App', () => {
 
   it('shows clear operational alert state when there are no active issues', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('0 active')).toBeInTheDocument();
@@ -278,7 +311,7 @@ describe('App', () => {
     setupMockApi({
       adminConfig: { kill_switch: true, posting_enabled: true },
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('1 active')).toBeInTheDocument();
@@ -305,7 +338,7 @@ describe('App', () => {
     setupMockApi({
       adminConfig: { kill_switch: true, posting_enabled: true },
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('0 active')).toBeInTheDocument();
@@ -332,7 +365,7 @@ describe('App', () => {
     setupMockApi({
       adminConfig: { kill_switch: true, posting_enabled: true },
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('Snoozed alerts: 1')).toBeInTheDocument();
@@ -361,7 +394,7 @@ describe('App', () => {
     setupMockApi({
       adminConfig: { kill_switch: true, posting_enabled: true },
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText(/kill-switch: 2m left/)).toBeInTheDocument());
 
@@ -384,9 +417,9 @@ describe('App', () => {
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Export Backup' }));
 
@@ -402,9 +435,9 @@ describe('App', () => {
 
   it('calls generate draft endpoint when Generate is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 0')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
@@ -427,9 +460,9 @@ describe('App', () => {
       status: 'PENDING',
     };
     const { calls } = setupMockApi({ drafts: [pendingDraft] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 1')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
@@ -452,9 +485,9 @@ describe('App', () => {
       status: 'PENDING',
     };
     const { calls } = setupMockApi({ drafts: [pendingDraft] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 1')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
@@ -474,7 +507,7 @@ describe('App', () => {
       published_at: null,
     };
     const { calls } = setupMockApi({ posts: [post] });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Posts tracked')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Confirm publish' }));
@@ -487,7 +520,7 @@ describe('App', () => {
 
   it('calls source ingest endpoint when Ingest is clicked', async () => {
     const { calls } = setupMockApi({ sources: [] });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Sources: 0')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Ingest' }));
@@ -501,7 +534,7 @@ describe('App', () => {
 
   it('calls daily report send endpoint when Send is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
@@ -514,9 +547,9 @@ describe('App', () => {
 
   it('calls create draft endpoint when Create Draft is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Pending: 0')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Draft' }));
@@ -536,7 +569,7 @@ describe('App', () => {
       published_at: null,
     };
     const { calls } = setupMockApi({ posts: [post] });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Posts tracked')).toBeInTheDocument());
 
@@ -557,9 +590,9 @@ describe('App', () => {
       published_at: null,
     };
     const { calls } = setupMockApi({ posts: [post] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Engagement');
+    await openView('Engagement');
     await waitFor(() => expect(screen.getByText('Comments stored')).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText('Comment post id'), { target: { value: post.id } });
@@ -573,7 +606,7 @@ describe('App', () => {
 
   it('calls publish-due endpoint when Run Due is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Run Due' }));
@@ -586,9 +619,9 @@ describe('App', () => {
 
   it('calls engagement poll endpoint when Poll is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Engagement');
+    await openView('Engagement');
     await waitFor(() => expect(screen.getByText('Comments stored')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Poll' }));
@@ -601,9 +634,9 @@ describe('App', () => {
 
   it('calls learning recompute endpoint when Recompute is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute' }));
@@ -616,9 +649,9 @@ describe('App', () => {
 
   it('calls kill switch on endpoint when Kill ON is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Kill ON' }));
@@ -631,9 +664,9 @@ describe('App', () => {
 
   it('calls kill switch off endpoint when Kill OFF is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Kill OFF' }));
@@ -646,9 +679,9 @@ describe('App', () => {
 
   it('calls posting on endpoint when Posting ON is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Posting ON' }));
@@ -661,9 +694,9 @@ describe('App', () => {
 
   it('calls posting off endpoint when Posting OFF is clicked', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Posting OFF' }));
@@ -676,7 +709,7 @@ describe('App', () => {
 
   it('runs bootstrap demo flow and calls key workflow endpoints', async () => {
     const { calls } = setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
 
@@ -709,9 +742,9 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Draft in focus: 77777777')).toBeInTheDocument());
 
     expect(screen.getByText(/Hashtag count high/)).toBeInTheDocument();
@@ -735,9 +768,9 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Engagement');
+    await openView('Engagement');
     await waitFor(() => expect(screen.getByText('Escalated comments: 1')).toBeInTheDocument());
     expect(screen.getByText(/PARTNERSHIP_SIGNAL/)).toBeInTheDocument();
     expect(screen.getByText('Industry Leader')).toBeInTheDocument();
@@ -760,9 +793,9 @@ describe('App', () => {
       status: 'PENDING',
     };
     setupMockApi({ drafts: [draft] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByText('Draft in focus: 88888888')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /Copy draft body/ }));
@@ -797,7 +830,7 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Posts tracked: 3')).toBeInTheDocument());
     expect(screen.getByText('Due now: 1')).toBeInTheDocument();
@@ -829,7 +862,7 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Posts tracked: 3')).toBeInTheDocument());
 
@@ -846,7 +879,7 @@ describe('App', () => {
   it('restores active view from localStorage on reload', async () => {
     localStorage.setItem('app.activeView', 'engagement');
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Engagement' })).toBeInTheDocument());
   });
@@ -870,7 +903,7 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Posts tracked: 2')).toBeInTheDocument());
     expect(screen.getByDisplayValue('Due now')).toBeInTheDocument();
@@ -898,7 +931,7 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Reset UI Preferences' }));
@@ -922,9 +955,9 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('Algorithm Alignment')).toBeInTheDocument());
     expect(screen.getByText('Audit Trail')).toBeInTheDocument();
     await waitFor(() => {
@@ -946,9 +979,11 @@ describe('App', () => {
       }
       return originalFetch(url, options);
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
+    // Wait for auth to complete (auth loading shows just "Loading...")
+    // Then check for dashboard loading state
+    await waitFor(() => expect(screen.getByText('Loading dashboard...')).toBeInTheDocument());
 
     await act(async () => { resolveHealth(); });
 
@@ -959,10 +994,17 @@ describe('App', () => {
   });
 
   it('shows error state on dashboard when all APIs fail', async () => {
-    global.fetch = vi.fn(async () => {
+    // Set up auth tokens so auth succeeds
+    localStorage.setItem('auth.accessToken', 'mock-access-token');
+    localStorage.setItem('auth.refreshToken', 'mock-refresh-token');
+
+    global.fetch = vi.fn(async (url) => {
+      const parsed = new URL(url);
+      // Allow auth to succeed, fail everything else
+      if (parsed.pathname === '/auth/me') return mockJson(mockUser);
       throw new Error('Network down');
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to load dashboard/)).toBeInTheDocument();
@@ -973,7 +1015,7 @@ describe('App', () => {
 
   it('shows empty state on dashboard when no posts exist', async () => {
     setupMockApi({ posts: [] });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
     expect(screen.getByText('No posts yet')).toBeInTheDocument();
@@ -996,10 +1038,10 @@ describe('App', () => {
       }
       return baseFetch(url, options);
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-    openView('Content');
+    await openView('Content');
 
     expect(screen.getByText('Loading content...')).toBeInTheDocument();
 
@@ -1025,10 +1067,10 @@ describe('App', () => {
       }
       return baseFetch(url, options);
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-    openView('Content');
+    await openView('Content');
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to load drafts/)).toBeInTheDocument();
@@ -1038,9 +1080,9 @@ describe('App', () => {
 
   it('shows empty state for pending drafts on content view', async () => {
     setupMockApi({ drafts: [] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Content');
+    await openView('Content');
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Content Pipeline' })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('No pending drafts')).toBeInTheDocument());
   });
@@ -1062,10 +1104,10 @@ describe('App', () => {
       }
       return baseFetch(url, options);
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-    openView('Engagement');
+    await openView('Engagement');
 
     expect(screen.getByText('Loading engagement...')).toBeInTheDocument();
 
@@ -1079,9 +1121,9 @@ describe('App', () => {
 
   it('shows empty state for comments on engagement view', async () => {
     setupMockApi({ comments: [] });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Engagement');
+    await openView('Engagement');
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Engagement' })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('No comments')).toBeInTheDocument());
   });
@@ -1107,10 +1149,10 @@ describe('App', () => {
       }
       return baseFetch(url, options);
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
-    openView('Settings');
+    await openView('Settings');
 
     expect(screen.getByText('Loading settings...')).toBeInTheDocument();
 
@@ -1141,9 +1183,9 @@ describe('App', () => {
         },
       ],
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
-    openView('Settings');
+    await openView('Settings');
     await waitFor(() => expect(screen.getByText('Audit Trail')).toBeInTheDocument());
     expect(screen.getByText('draft.generate')).toBeInTheDocument();
     expect(screen.getByText('report.daily.send')).toBeInTheDocument();
@@ -1160,7 +1202,7 @@ describe('App', () => {
 
   it('renders skip-to-content link that becomes visible on focus', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
 
     const skipLink = screen.getByText('Skip to main content');
@@ -1170,7 +1212,7 @@ describe('App', () => {
 
   it('marks active sidebar nav item with aria-current', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
 
     const dashboardBtn = screen.getByRole('button', { name: 'Dashboard' });
@@ -1182,7 +1224,7 @@ describe('App', () => {
 
   it('sidebar nav has aria-label', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
 
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
@@ -1191,7 +1233,7 @@ describe('App', () => {
 
   it('main content area has aria-label reflecting active view', async () => {
     setupMockApi();
-    render(<App />);
+    render(<AppWithAuth />);
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
 
     const main = screen.getByRole('main');
@@ -1218,9 +1260,9 @@ describe('App', () => {
       return baseFetch(url, options);
     });
 
-    render(<App />);
+    render(<AppWithAuth />);
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
-    openView('Content');
+    await openView('Content');
 
     await waitFor(() => {
       const statusElements = screen.getAllByRole('status');
@@ -1231,8 +1273,17 @@ describe('App', () => {
   });
 
   it('error message has role=alert', async () => {
-    global.fetch = vi.fn(async () => { throw new Error('Network down'); });
-    render(<App />);
+    // Set up auth tokens so auth succeeds
+    localStorage.setItem('auth.accessToken', 'mock-access-token');
+    localStorage.setItem('auth.refreshToken', 'mock-refresh-token');
+
+    global.fetch = vi.fn(async (url) => {
+      const parsed = new URL(url);
+      // Allow auth to succeed, fail everything else
+      if (parsed.pathname === '/auth/me') return mockJson(mockUser);
+      throw new Error('Network down');
+    });
+    render(<AppWithAuth />);
 
     await waitFor(() => {
       const alert = screen.getByRole('alert');
@@ -1245,7 +1296,7 @@ describe('App', () => {
     setupMockApi({
       adminConfig: { kill_switch: true },
     });
-    render(<App />);
+    render(<AppWithAuth />);
 
     await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
     await waitFor(() => {

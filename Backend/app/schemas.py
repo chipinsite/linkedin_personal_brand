@@ -130,3 +130,47 @@ class LearningWeightsRead(BaseModel):
     format_weights_json: str
     tone_weights_json: str
     updated_at: datetime
+
+
+# Authentication schemas
+
+class UserCreate(BaseModel):
+    email: str
+    username: str
+    password: str
+    full_name: str | None = None
+
+
+class UserRead(BaseModel):
+    id: uuid.UUID
+    email: str
+    username: str
+    full_name: str | None
+    is_active: bool
+    is_superuser: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class LoginRequest(BaseModel):
+    email_or_username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str

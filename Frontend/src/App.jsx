@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from './contexts/AuthContext';
 import Sidebar from './components/layout/Sidebar';
 import DashboardView from './components/views/DashboardView';
 import ContentView from './components/views/ContentView';
 import EngagementView from './components/views/EngagementView';
 import SettingsView from './components/views/SettingsView';
+import LoginView from './components/views/LoginView';
+import LoadingSpinner from './components/shared/LoadingSpinner';
 import { C } from './constants/theme';
 
 export default function App() {
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [activeView, setActiveView] = useState(() => {
     try {
       return localStorage.getItem('app.activeView') || 'dashboard';
@@ -32,6 +36,29 @@ export default function App() {
       // ignore storage write failures in constrained environments
     }
     setActiveView('dashboard');
+  }
+
+  // Show loading spinner while checking auth state
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+          background: C.bg,
+        }}
+      >
+        <LoadingSpinner label="Loading..." size="large" />
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginView />;
   }
 
   const views = {
@@ -73,7 +100,13 @@ export default function App() {
       >
         Skip to main content
       </a>
-      <Sidebar activeView={activeView} setActiveView={setActiveView} config={config} />
+      <Sidebar
+        activeView={activeView}
+        setActiveView={setActiveView}
+        config={config}
+        user={user}
+        onLogout={logout}
+      />
       <main
         id="main-content"
         aria-label={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} view`}

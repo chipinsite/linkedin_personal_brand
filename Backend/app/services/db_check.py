@@ -21,6 +21,8 @@ REQUIRED_TABLES = frozenset({
     "notification_logs",
     "engagement_metrics",
     "learning_weights",
+    "users",
+    "refresh_tokens",
 })
 
 

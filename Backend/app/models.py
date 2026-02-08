@@ -169,3 +169,34 @@ class LearningWeight(Base):
     format_weights_json: Mapped[str] = mapped_column(Text)
     tone_weights_json: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="refresh_tokens")

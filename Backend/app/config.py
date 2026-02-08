@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     app_read_api_key: str | None = None
     app_write_api_key: str | None = None
     auth_enforce_read: bool = False
+
+    # JWT Authentication settings
+    jwt_secret_key: str = "CHANGE_ME_IN_PRODUCTION_use_openssl_rand_hex_32"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 7
+    auth_mode: str = "jwt"  # "jwt" or "api_key" for backward compatibility
     database_url: str = backend_local_db_url()
     redis_url: str = "redis://localhost:6379/0"
     timezone: str = "Africa/Johannesburg"
