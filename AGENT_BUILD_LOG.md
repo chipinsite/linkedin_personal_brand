@@ -1648,3 +1648,91 @@ Repository now includes a lightweight live API walkthrough utility to validate r
 ### Next Steps
 - Add optional richer live checks once background worker/bot processes are part of default play mode.
 - Continue incremental closure of external-integration-driven feature gaps.
+
+## [2026-02-08 17:34 SAST] Build: v2.0 Frontend Alignment Console
+
+### Build Phase
+Post Build
+
+### Goal
+Increase frontend operational parity with linkedinAlgos constraints by adding manual publish quality checks and clearer engagement escalation visibility.
+
+### Context
+User requested autonomous continuation toward a working frontend with high CLAUDE.md feature coverage, with strict build logging required before changes.
+
+### Scope
+In scope:
+- Add LinkedIn-aligned pre-publish checklist/quality signal panel to frontend
+- Add explicit escalations view for comments flagged high-value
+- Add/adjust tests for new UI behavior
+- Update docs/version notes
+Out of scope:
+- Backend data model/schema changes
+- External API integration changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added client-side LinkedIn quality signal helpers in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`:
+- hashtag extraction/count checks with warning threshold above 3
+- external link detection warning in post body
+- word-count warning above 300
+- topical consistency hint against pillar/sub-theme
+- Added `Manual Publish Assistant` panel in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`:
+- draft focus summary
+- checklist result rendering (ready/warnings)
+- one-click `Copy draft body` manual publish helper
+- golden hour engagement reminder text
+- Added `Escalations` panel in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` listing escalated comments and reasons.
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- checklist warning rendering test
+- escalations panel rendering test
+- clipboard copy helper test
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` for v2.0 status and checklist additions.
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v2.0 version row and section 37.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A manual-first workflow needs strong operator guidance at publish time. Surfacing quality checks and escalations directly in the frontend improves compliance and actionable engagement behavior without backend risk.
+
+### Assumptions
+- Existing draft and comment payloads provide enough fields for client-side checks.
+- Frontend-only enhancements are acceptable for this phase.
+
+### Risks and Tradeoffs
+- Client-side checks are advisory and can diverge from backend guardrails.
+- Mitigation: present them as operator guidance, not enforcement.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified new manual publish and escalations panels are present in app layout and integrated into refresh state.
+Result:
+- Frontend tests passed (`21/21`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend now exposes operator-facing LinkedIn-aligned publish guidance and explicit escalation visibility, improving manual publishing quality control and engagement triage readiness.
+
+### Confidence Rating
+9/10. Coverage increased with three additional UI tests and full smoke pass; remaining uncertainty is that quality checks are heuristic guidance rather than backend-enforced policy.
+
+### Known Gaps or Uncertainty
+Exact thresholds for some ranking signals are heuristic in linkedinAlgos and not definitive API rules.
+
+### Next Steps
+- Add publish queue-focused filtering and scheduled-time grouping to reduce operator scan time.
+- Add basic browser E2E checks for critical play-mode workflows against a live local backend.
+
+---

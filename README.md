@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v1.8` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v2.0` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -96,11 +96,13 @@ API_KEY=your_key_here ./scripts/live_api_walkthrough.sh
 At `http://127.0.0.1:5173`:
 
 - click `Bootstrap demo` in the `Playground` panel for one-click seeded workflow data
+- check `Manual Publish Assistant` and resolve any checklist warnings before publish confirmation
 - click `Generate`, then `Approve`/`Reject` on pending drafts
 - click `Create Draft` to add a manual draft
 - click `Run Due` and `Confirm publish` in Publishing
 - update metrics with `Update metrics`
 - add a comment with `Add Comment`
+- review high-value items in the `Escalations` panel
 - run `Poll`, `Ingest`, `Recompute`, and `Send`
 - test `Kill ON/OFF` and `Posting ON/OFF`
 

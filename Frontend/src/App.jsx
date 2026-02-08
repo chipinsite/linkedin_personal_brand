@@ -13,6 +13,31 @@ const DRAFT_DEFAULTS = {
   carousel_document_url: '',
 };
 
+function countWords(text) {
+  return (text || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function extractHashtags(text) {
+  return (text || '').match(/#[\p{L}\p{N}_-]+/gu) || [];
+}
+
+function hasExternalLink(text) {
+  return /(https?:\/\/|www\.)/i.test(text || '');
+}
+
+function includesTopicHint(text, draft) {
+  const body = String(text || '').toLowerCase();
+  const pillar = String(draft?.pillar_theme || '').toLowerCase().trim();
+  const subTheme = String(draft?.sub_theme || '').toLowerCase().trim();
+  if (!pillar && !subTheme) {
+    return true;
+  }
+  return Boolean((pillar && body.includes(pillar)) || (subTheme && body.includes(subTheme)));
+}
+
 export default function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -150,6 +175,55 @@ export default function App() {
   }
 
   const pendingDrafts = useMemo(() => drafts.filter((d) => d.status === 'PENDING'), [drafts]);
+  const escalatedComments = useMemo(() => comments.filter((comment) => comment.escalated), [comments]);
+  const latestDraftForPublishing = useMemo(() => {
+    if (pendingDrafts.length > 0) {
+      return pendingDrafts[0];
+    }
+    return drafts[0] || null;
+  }, [drafts, pendingDrafts]);
+  const publishChecklist = useMemo(() => {
+    const content = latestDraftForPublishing?.content_body || '';
+    const hashtags = extractHashtags(content);
+    const words = countWords(content);
+    const hasLink = hasExternalLink(content);
+    const topicalMatch = includesTopicHint(content, latestDraftForPublishing);
+    const violations = [];
+
+    if (hashtags.length > 3) {
+      violations.push(`Hashtag count high (${hashtags.length}). Keep to 1-3.`);
+    }
+    if (hasLink) {
+      violations.push('External link detected in body. Prefer native post text.');
+    }
+    if (words > 300) {
+      violations.push(`Word count above 300 (${words}).`);
+    }
+    if (!topicalMatch) {
+      violations.push('Topic mismatch risk. Body may not match selected pillar or sub-theme.');
+    }
+
+    return {
+      ready: violations.length === 0 && Boolean(content),
+      hashtags,
+      words,
+      hasLink,
+      topicalMatch,
+      violations,
+    };
+  }, [latestDraftForPublishing]);
+
+  async function copyDraftBodyForManualPublish() {
+    const content = latestDraftForPublishing?.content_body || '';
+    if (!content) {
+      throw new Error('No draft content available to copy');
+    }
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(content);
+      return;
+    }
+    throw new Error('Clipboard API unavailable in this browser');
+  }
 
   return (
     <div className="app-shell">
@@ -182,6 +256,34 @@ export default function App() {
           <div className="row-actions">
             <button disabled={loading} onClick={() => withAction('Data refreshed', refreshAll)}>Refresh now</button>
           </div>
+        </Panel>
+
+        <Panel
+          title="Manual Publish Assistant"
+          action={
+            <button
+              disabled={loading || !latestDraftForPublishing?.content_body}
+              onClick={() => withAction('Draft body copied for manual publish', copyDraftBodyForManualPublish)}
+            >
+              Copy draft body
+            </button>
+          }
+        >
+          <p>Draft in focus: {latestDraftForPublishing?.id ? String(latestDraftForPublishing.id).slice(0, 8) : 'none'}</p>
+          <ul className="metrics">
+            <li>Words: {publishChecklist.words}</li>
+            <li>Hashtags: {publishChecklist.hashtags.length}</li>
+            <li>External link in body: {publishChecklist.hasLink ? 'yes' : 'no'}</li>
+            <li>Topic consistency hint: {publishChecklist.topicalMatch ? 'aligned' : 'review'}</li>
+          </ul>
+          {publishChecklist.ready ? (
+            <div className="banner success">Checklist passed. Ready for manual LinkedIn publishing.</div>
+          ) : (
+            <div className="banner error">
+              {publishChecklist.violations.length ? publishChecklist.violations.join(' ') : 'No draft content available.'}
+            </div>
+          )}
+          <p>Golden hour rule: reply to meaningful comments in the first 60-90 minutes after publish confirmation.</p>
         </Panel>
 
         <Panel
@@ -418,6 +520,21 @@ export default function App() {
                 Add Comment
               </button>
             </div>
+          </div>
+        </Panel>
+
+        <Panel title="Escalations">
+          <p>Escalated comments: {escalatedComments.length}</p>
+          <div className="list">
+            {escalatedComments.slice(0, 5).map((comment) => (
+              <div className="list-row" key={comment.id}>
+                <div>
+                  <strong>{comment.commenter_name}</strong>
+                  <p>{comment.high_value_reason || 'REVIEW'}</p>
+                </div>
+                <span>{comment.comment_text}</span>
+              </div>
+            ))}
           </div>
         </Panel>
 

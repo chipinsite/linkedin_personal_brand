@@ -517,4 +517,80 @@ describe('App', () => {
       expect(screen.getByText('Demo bootstrap complete')).toBeInTheDocument();
     });
   });
+
+  it('shows manual publish checklist warnings when draft violates linkedin constraints', async () => {
+    setupMockApi({
+      drafts: [
+        {
+          id: '77777777-7777-7777-7777-777777777777',
+          pillar_theme: 'Adtech fundamentals',
+          sub_theme: 'Programmatic buying',
+          format: 'TEXT',
+          tone: 'EDUCATIONAL',
+          content_body:
+            'Generic content with link https://example.com #one #two #three #four and limited topic relation.',
+          status: 'PENDING',
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Draft in focus: 77777777')).toBeInTheDocument());
+
+    expect(screen.getByText(/Hashtag count high/)).toBeInTheDocument();
+    expect(screen.getByText(/External link detected in body/)).toBeInTheDocument();
+  });
+
+  it('shows escalated comments with reason in escalation panel', async () => {
+    setupMockApi({
+      comments: [
+        {
+          id: 'cmt-1',
+          published_post_id: 'post-1',
+          commenter_name: 'Industry Leader',
+          comment_text: 'Can we discuss a partnership here?',
+          commented_at: '2026-02-08T12:00:00Z',
+          is_high_value: true,
+          high_value_reason: 'PARTNERSHIP_SIGNAL',
+          escalated: true,
+          auto_reply_sent: false,
+          auto_reply_text: null,
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Escalated comments: 1')).toBeInTheDocument());
+    expect(screen.getByText('PARTNERSHIP_SIGNAL')).toBeInTheDocument();
+    expect(screen.getByText('Industry Leader')).toBeInTheDocument();
+  });
+
+  it('copies draft body for manual publish', async () => {
+    const clipboardWrite = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: clipboardWrite },
+    });
+
+    const draft = {
+      id: '88888888-8888-8888-8888-888888888888',
+      pillar_theme: 'Adtech fundamentals',
+      sub_theme: 'Programmatic buying',
+      format: 'TEXT',
+      tone: 'EDUCATIONAL',
+      content_body: 'Copy me to LinkedIn manually.',
+      status: 'PENDING',
+    };
+    setupMockApi({ drafts: [draft] });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Draft in focus: 88888888')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy draft body' }));
+
+    await waitFor(() => {
+      expect(clipboardWrite).toHaveBeenCalledWith('Copy me to LinkedIn manually.');
+      expect(screen.getByText('Draft body copied for manual publish')).toBeInTheDocument();
+    });
+  });
 });

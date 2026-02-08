@@ -1058,6 +1058,7 @@ All AI generated content must adhere to:
 | 1.7 | 2026-02-08 | Added local play-mode startup scripts and frontend interaction checklist for hands-on testing |
 | 1.8 | 2026-02-08 | Added one-click frontend demo bootstrap workflow for seeded end-to-end interaction flow and expanded tests |
 | 1.9 | 2026-02-08 | Added live API walkthrough script for local runtime verification across core backend endpoints |
+| 2.0 | 2026-02-08 | Added frontend manual publish assistant checks and escalations panel aligned to linkedinAlgos guidance |
 
 ---
 
@@ -2099,3 +2100,54 @@ Result:
 ### 36.4 Remaining Constraints
 
 - Walkthrough script validates API responsiveness and basic flow execution but does not replace full integration/E2E orchestration.
+
+---
+
+## 37. v2.0 Frontend Manual Publish Alignment (2026-02-08)
+
+### 37.1 v2.0 Scope
+
+v2.0 improves operator guidance in the frontend so manual publishing and engagement handling stay aligned with `linkedinAlgos.md`:
+
+- pre-publish quality checklist for draft body risks
+- explicit visibility of escalated/high-value comments
+- copy-ready manual publish handoff from UI
+
+### 37.2 v2.0 Implementation Added
+
+- Updated frontend console:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- New `Manual Publish Assistant` panel:
+  - draft focus indicator
+  - quality checks for:
+    - hashtag count (warn if above 3)
+    - external links in body (warn)
+    - 300-word ceiling (warn)
+    - topic consistency hint vs pillar/sub-theme
+  - one-click `Copy draft body` helper for manual publish flow
+  - golden-hour engagement reminder (60-90 minutes)
+- New `Escalations` panel:
+  - surfaced escalated comments count
+  - high-value reason and commenter visibility for quick follow-up
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - suite now covers checklist warnings, escalation rendering, and clipboard copy behavior
+
+### 37.3 v2.0 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`21/21`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 37.4 Remaining Constraints
+
+- Checklist logic is advisory UI guidance and does not replace backend guardrails.
+- Full LinkedIn live API publishing remains intentionally disabled in MVP compliant manual-first mode.
