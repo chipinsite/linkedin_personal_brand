@@ -107,6 +107,7 @@ function setupMockApi(overrides = {}) {
       return mockJson(state.drafts.find((draft) => draft.id === draftId) || state.baseDraft);
     }
     if (method === 'GET' && path === '/posts') return mockJson(state.posts);
+    if (method === 'POST' && path === '/posts/publish-due') return mockJson({ processed: 0 });
     if (method === 'POST' && path.endsWith('/confirm-manual-publish')) {
       const postId = path.split('/')[2];
       state.posts = state.posts.map((post) =>
@@ -151,14 +152,32 @@ function setupMockApi(overrides = {}) {
       return mockJson({ created: 1, feeds_count: 1 });
     }
     if (method === 'GET' && path === '/learning/weights') return mockJson(state.learning);
+    if (method === 'POST' && path === '/learning/recompute') return mockJson(state.learning);
     if (method === 'GET' && path === '/reports/daily') return mockJson(state.report);
     if (method === 'POST' && path === '/reports/daily/send') {
       return mockJson({ sent: true, date: '2026-02-08' });
     }
     if (method === 'GET' && path === '/admin/config') return mockJson(state.adminConfig);
+    if (method === 'POST' && path === '/admin/kill-switch/on') {
+      state.adminConfig = { ...state.adminConfig, kill_switch: true };
+      return mockJson({ kill_switch: true });
+    }
+    if (method === 'POST' && path === '/admin/kill-switch/off') {
+      state.adminConfig = { ...state.adminConfig, kill_switch: false };
+      return mockJson({ kill_switch: false });
+    }
+    if (method === 'POST' && path === '/admin/posting/on') {
+      state.adminConfig = { ...state.adminConfig, posting_enabled: true };
+      return mockJson({ posting_enabled: true });
+    }
+    if (method === 'POST' && path === '/admin/posting/off') {
+      state.adminConfig = { ...state.adminConfig, posting_enabled: false };
+      return mockJson({ posting_enabled: false });
+    }
     if (method === 'GET' && path === '/admin/algorithm-alignment') return mockJson(state.alignment);
     if (method === 'GET' && path === '/admin/audit-logs') return mockJson(state.auditLogs);
     if (method === 'GET' && path === '/engagement/status') return mockJson(state.engagementStatus);
+    if (method === 'POST' && path === '/engagement/poll') return mockJson({ processed_posts: 0, stored_comments: 0 });
 
     return mockJson({});
   });
@@ -366,6 +385,104 @@ describe('App', () => {
     await waitFor(() => {
       expect(calls.some((call) => call.method === 'POST' && call.path === '/comments')).toBe(true);
       expect(screen.getByText('Comment added')).toBeInTheDocument();
+    });
+  });
+
+  it('calls publish-due endpoint when Run Due is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run Due' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/posts/publish-due')).toBe(true);
+      expect(screen.getByText('Due posts processed')).toBeInTheDocument();
+    });
+  });
+
+  it('calls engagement poll endpoint when Poll is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Poll' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/engagement/poll')).toBe(true);
+      expect(screen.getByText('Engagement poll complete')).toBeInTheDocument();
+    });
+  });
+
+  it('calls learning recompute endpoint when Recompute is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recompute' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/learning/recompute')).toBe(true);
+      expect(screen.getByText('Learning recomputed')).toBeInTheDocument();
+    });
+  });
+
+  it('calls kill switch on endpoint when Kill ON is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kill ON' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/admin/kill-switch/on')).toBe(true);
+      expect(screen.getByText('Kill switch enabled')).toBeInTheDocument();
+    });
+  });
+
+  it('calls kill switch off endpoint when Kill OFF is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kill OFF' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/admin/kill-switch/off')).toBe(true);
+      expect(screen.getByText('Kill switch disabled')).toBeInTheDocument();
+    });
+  });
+
+  it('calls posting on endpoint when Posting ON is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Posting ON' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/admin/posting/on')).toBe(true);
+      expect(screen.getByText('Posting enabled')).toBeInTheDocument();
+    });
+  });
+
+  it('calls posting off endpoint when Posting OFF is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Posting OFF' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/admin/posting/off')).toBe(true);
+      expect(screen.getByText('Posting disabled')).toBeInTheDocument();
     });
   });
 });

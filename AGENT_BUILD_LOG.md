@@ -1341,3 +1341,85 @@ Frontend now supports richer hands-on interaction for core content lifecycle ope
 ### Next Steps
 - Add admin toggle action tests (kill switch/posting toggles) to close remaining core UI action coverage.
 - Start a live integration validation mode against running backend and frontend processes.
+
+---
+
+## [2026-02-08 17:07 SAST] Build: v1.6 Core Action Coverage Completion
+
+### Build Phase
+Post Build
+
+### Goal
+Complete frontend automated coverage for remaining core control actions in the operations console.
+
+### Context
+Continuation after v1.5; remaining high-frequency actions (admin toggles and operational triggers) are not yet explicitly asserted in tests.
+
+### Scope
+In scope:
+- Add tests for admin kill switch and posting toggles
+- Add tests for run-due, poll, and recompute actions
+- Extend mock API handlers as needed
+- Update docs/logs and validate
+Out of scope:
+- Backend logic changes
+- Non-core UI redesign
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Extended `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` with tests/assertions for:
+- `POST /posts/publish-due`
+- `POST /engagement/poll`
+- `POST /learning/recompute`
+- `POST /admin/kill-switch/on`
+- `POST /admin/kill-switch/off`
+- `POST /admin/posting/on`
+- `POST /admin/posting/off`
+- Extended mock API handlers for those endpoint paths.
+- Stabilized control-action tests by waiting for initial refresh before clicking action buttons.
+- Increased frontend suite from 10 to 17 passing tests.
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v1.6.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+These actions are central to day-to-day operation and should be protected against frontend regressions before declaring a broadly playable frontend baseline.
+
+### Assumptions
+- Existing button labels for these actions remain stable.
+
+### Risks and Tradeoffs
+- Risk: additional tests increase maintenance overhead when UI text changes.
+- Mitigation: keep assertions focused on API method/path and success state.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified endpoint method/path assertions for all new control actions
+Result:
+- Frontend tests passed (`17` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend action-level test coverage now includes all major console controls used for day-to-day operation (content lifecycle, engagement triggers, reporting, and admin toggles).
+
+### Confidence Rating
+9/10. Full targeted suite is passing and integrated into root smoke validation; remaining uncertainty is primarily around live environment end-to-end behavior.
+
+### Known Gaps or Uncertainty
+- Tests are still mock-network component tests and do not yet exercise a true browser+live-backend runtime.
+- Spec-level capabilities not yet implemented in backend remain outside frontend coverage scope.
+
+### Next Steps
+- Add live integration validation instructions and final run commands for user play testing.
+- Continue closing feature gaps that depend on backend capabilities and external integrations.

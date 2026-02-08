@@ -1054,6 +1054,7 @@ All AI generated content must adhere to:
 | 1.3 | 2026-02-08 | Expanded frontend automated tests to cover draft approve and manual publish confirmation action workflows |
 | 1.4 | 2026-02-08 | Expanded frontend automated tests to cover source ingest and daily report send action workflows |
 | 1.5 | 2026-02-08 | Added interactive frontend workflows for manual draft creation, post metrics updates, and comment creation with expanded action tests |
+| 1.6 | 2026-02-08 | Completed frontend core control action test coverage for publish-due, poll, recompute, and admin kill/posting toggles |
 
 ---
 
@@ -1930,3 +1931,47 @@ Result:
 ### 32.4 Remaining Constraints
 
 - Frontend now covers most daily operator actions, but some spec-level capabilities from `CLAUDE.md` remain backend-limited or not yet implemented end-to-end (e.g., WhatsApp/email operational channels and full external LinkedIn API write mode).
+
+---
+
+## 33. v1.6 Core Control Action Test Coverage (2026-02-08)
+
+### 33.1 v1.6 Scope
+
+v1.6 closes remaining high-frequency control action gaps in frontend automated testing:
+
+- publish due trigger
+- engagement poll trigger
+- learning recompute trigger
+- admin kill switch and posting toggles
+
+### 33.2 v1.6 Implementation Added
+
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` with endpoint assertions for:
+  - `POST /posts/publish-due`
+  - `POST /engagement/poll`
+  - `POST /learning/recompute`
+  - `POST /admin/kill-switch/on`
+  - `POST /admin/kill-switch/off`
+  - `POST /admin/posting/on`
+  - `POST /admin/posting/off`
+- Extended test mock handlers for those paths.
+- Stabilized action tests by waiting for initial app refresh before clicking controls.
+
+### 33.3 v1.6 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`17/17`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 33.4 Remaining Constraints
+
+- Frontend test suite is now broad at component/action level but still not a substitute for full end-to-end browser tests against live services.
