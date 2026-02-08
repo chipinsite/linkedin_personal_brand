@@ -55,6 +55,87 @@ Rate confidence in this build from 1 to 10 and explain why.
 <List next steps>
 
 ---
+## [2026-02-08 21:10 SAST] Build: v4.3 Engagement Status Timezone Hotfix
+
+### Build Phase
+Post Build
+
+### Goal
+Fix `/engagement/status` runtime errors caused by timezone-aware and timezone-naive datetime comparisons in SQLite-backed local operation.
+
+### Context
+User validated the v4.2 startup fix and reported repeated `500` responses on `/engagement/status` with `TypeError: can't compare offset-naive and offset-aware datetimes`.
+
+### Scope
+In scope:
+- Patch engagement status datetime comparison to normalize timestamps safely
+- Add regression test coverage for the endpoint behavior under SQLite
+- Update release docs/build log for the hotfix
+Out of scope:
+- Broader datetime model refactor across all routes
+- Non-engagement endpoint behavior changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Patched engagement status datetime normalization:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/engagement.py`
+- route now converts `comment_monitoring_until` to UTC before comparison, preventing naive/aware comparison errors.
+- Added regression endpoint test:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v04_monitoring_and_polling.py`
+- new test verifies `/engagement/status` returns `200` and expected shape after manual publish flow.
+- Updated version/docs:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.3`
+- `/Users/sphiwemawhayi/Personal Brand/README.md` version status updated
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` added v4.3 hotfix section
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/engagement.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v04_monitoring_and_polling.py`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+The failure is isolated and deterministic in one route; a targeted normalization fix is low-risk and consistent with existing engagement service datetime handling.
+
+### Assumptions
+- Existing rows in SQLite may contain naive datetimes even when model columns are marked timezone-aware.
+- Service-level `_as_utc` normalization is the correct canonical behavior for engagement time comparisons.
+
+### Risks and Tradeoffs
+- Risk: importing/using internal helper patterns across modules could increase coupling.
+- Mitigation: keep normalization local in route and limit scope to this endpoint path.
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m unittest -v tests/test_v04_monitoring_and_polling.py`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- User-logged local run confirmed all key endpoints returning `200` after SQLite switch; remaining failure narrowed to `/engagement/status` and then patched.
+Result:
+- v0.4 monitoring suite passed (`4/4`, including new regression test)
+- backend suite passed (`20/20`)
+- frontend suite passed (`35/35`)
+- frontend production build passed
+- unified smoke run passed
+
+### Result
+`/engagement/status` no longer throws timezone comparison errors in local SQLite mode, restoring full dashboard engagement status functionality.
+
+### Confidence Rating
+9/10. The exact failing path is covered by a new test and full smoke suite passed; residual uncertainty is limited to future routes that might introduce direct datetime comparisons without normalization.
+
+### Known Gaps or Uncertainty
+- A broader audit of all datetime comparisons was not part of this hotfix scope.
+
+### Next Steps
+1. Commit and push `v4.3` hotfix.
+2. Continue autonomous feature build toward remaining frontend completeness targets.
+
+---
 ## [2026-02-08 21:05 SAST] Build: v4.2 Runtime DB Fallback and Local CORS Stabilization
 
 ### Build Phase

@@ -107,6 +107,30 @@ class V04MonitoringPollingTest(unittest.TestCase):
         self.assertEqual(polling_interval_for_post_age(timedelta(hours=4)), timedelta(minutes=30))
         self.assertEqual(polling_interval_for_post_age(timedelta(hours=20)), timedelta(hours=2))
 
+    def test_monitoring_status_handles_sqlite_datetime_variants(self):
+        draft_resp = self.client.post("/drafts/generate")
+        self.assertEqual(draft_resp.status_code, 200)
+        draft_id = draft_resp.json()["id"]
+
+        approve_resp = self.client.post(f"/drafts/{draft_id}/approve", json={})
+        self.assertEqual(approve_resp.status_code, 200)
+
+        posts_resp = self.client.get("/posts")
+        post = next(p for p in posts_resp.json() if p["draft_id"] == draft_id)
+
+        confirm_resp = self.client.post(
+            f"/posts/{post['id']}/confirm-manual-publish",
+            json={"linkedin_post_url": "https://linkedin.com/feed/update/urn:li:activity:55555"},
+        )
+        self.assertEqual(confirm_resp.status_code, 200)
+
+        status_resp = self.client.get("/engagement/status")
+        self.assertEqual(status_resp.status_code, 200)
+        body = status_resp.json()
+        self.assertIn("monitored_total", body)
+        self.assertIn("active_total", body)
+        self.assertIn("due_total", body)
+
 
 if __name__ == "__main__":
     unittest.main()

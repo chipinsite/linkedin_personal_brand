@@ -2797,3 +2797,45 @@ Result:
 ### 50.4 Remaining Constraints
 
 - Existing local `.env` files that hard-code Postgres may still require explicit update to SQLite if users prefer deterministic non-fallback behavior.
+
+---
+
+## 51. v4.3 Engagement Status Timezone Hotfix (2026-02-08)
+
+### 51.1 v4.3 Scope
+
+v4.3 fixes a runtime regression on local SQLite operation:
+
+- `/engagement/status` no longer fails on naive/aware datetime comparisons
+- adds regression coverage for engagement status endpoint in monitored-post flow
+
+### 51.2 v4.3 Implementation Added
+
+- Engagement status comparison normalization:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/engagement.py`
+  - route now normalizes `comment_monitoring_until` via UTC conversion before comparing against current UTC time
+- Regression test:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v04_monitoring_and_polling.py`
+  - adds endpoint-level check that `/engagement/status` returns `200` and expected shape after publish confirmation flow
+- Version/docs updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.3`
+  - `/Users/sphiwemawhayi/Personal Brand/README.md` updated version status
+
+### 51.3 v4.3 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Backend && ./.venv/bin/python -m unittest -v tests/test_v04_monitoring_and_polling.py`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- v0.4 monitoring/polling test suite passed (including new timezone regression test)
+- backend tests passed (`20/20`)
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- unified smoke run passed (backend + frontend + build)
+
+### 51.4 Remaining Constraints
+
+- Existing data written with mixed timezone representations in other routes may still warrant a broader normalization sweep if similar comparisons are added elsewhere.

@@ -5,7 +5,7 @@ from ..db import get_db
 from ..models import PublishedPost
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
-from ..services.engagement import _is_post_due_for_poll, poll_and_store_comments
+from ..services.engagement import _as_utc, _is_post_due_for_poll, poll_and_store_comments
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/engagement", tags=["engagement"])
@@ -33,7 +33,11 @@ def monitoring_status(db: Session = Depends(get_db), _auth: None = Depends(requi
         .filter(PublishedPost.comment_monitoring_until.is_not(None))
         .all()
     )
-    active = [p for p in monitored if p.comment_monitoring_until and p.comment_monitoring_until > now]
+    active = []
+    for post in monitored:
+        monitoring_until = _as_utc(post.comment_monitoring_until)
+        if monitoring_until and monitoring_until > now:
+            active.append(post)
     due = [p for p in active if _is_post_due_for_poll(p, now)]
     return {
         "monitored_total": len(monitored),
