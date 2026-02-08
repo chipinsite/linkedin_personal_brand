@@ -38,6 +38,17 @@ function includesTopicHint(text, draft) {
   return Boolean((pillar && body.includes(pillar)) || (subTheme && body.includes(subTheme)));
 }
 
+function isDueNow(post) {
+  if (!post || post.published_at || !post.scheduled_time) {
+    return false;
+  }
+  const scheduledMs = Date.parse(post.scheduled_time);
+  if (Number.isNaN(scheduledMs)) {
+    return false;
+  }
+  return scheduledMs <= Date.now();
+}
+
 export default function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -60,6 +71,7 @@ export default function App() {
 
   const [rejectReason, setRejectReason] = useState('Not aligned with strategy');
   const [publishUrl, setPublishUrl] = useState('https://linkedin.com/feed/update/urn:li:activity:');
+  const [publishFilter, setPublishFilter] = useState('all');
   const [feedInput, setFeedInput] = useState('https://digiday.com/feed/,https://www.adexchanger.com/feed/');
 
   const [manualDraft, setManualDraft] = useState(DRAFT_DEFAULTS);
@@ -212,6 +224,29 @@ export default function App() {
       violations,
     };
   }, [latestDraftForPublishing]);
+  const publishQueueSummary = useMemo(() => {
+    const dueNow = posts.filter((post) => isDueNow(post)).length;
+    const unpublished = posts.filter((post) => !post.published_at).length;
+    const published = posts.filter((post) => Boolean(post.published_at)).length;
+    return {
+      total: posts.length,
+      dueNow,
+      unpublished,
+      published,
+    };
+  }, [posts]);
+  const filteredPosts = useMemo(() => {
+    if (publishFilter === 'unpublished') {
+      return posts.filter((post) => !post.published_at);
+    }
+    if (publishFilter === 'published') {
+      return posts.filter((post) => Boolean(post.published_at));
+    }
+    if (publishFilter === 'due_now') {
+      return posts.filter((post) => isDueNow(post));
+    }
+    return posts;
+  }, [posts, publishFilter]);
 
   async function copyDraftBodyForManualPublish() {
     const content = latestDraftForPublishing?.content_body || '';
@@ -383,17 +418,31 @@ export default function App() {
           title="Publishing"
           action={<button disabled={loading} onClick={() => withAction('Due posts processed', () => api.publishDue())}>Run Due</button>}
         >
-          <p>Posts tracked: {posts.length}</p>
+          <p>Posts tracked: {publishQueueSummary.total}</p>
+          <ul className="metrics">
+            <li>Due now: {publishQueueSummary.dueNow}</li>
+            <li>Unpublished: {publishQueueSummary.unpublished}</li>
+            <li>Published: {publishQueueSummary.published}</li>
+          </ul>
           <label>
             LinkedIn post URL
             <input value={publishUrl} onChange={(e) => setPublishUrl(e.target.value)} />
           </label>
+          <label>
+            Queue filter
+            <select value={publishFilter} onChange={(e) => setPublishFilter(e.target.value)}>
+              <option value="all">All</option>
+              <option value="due_now">Due now</option>
+              <option value="unpublished">Unpublished</option>
+              <option value="published">Published</option>
+            </select>
+          </label>
           <div className="list">
-            {posts.slice(0, 5).map((post) => (
+            {filteredPosts.slice(0, 5).map((post) => (
               <div className="list-row" key={post.id}>
                 <div>
                   <strong>{post.id.slice(0, 8)}</strong>
-                  <p>Published: {post.published_at ? 'yes' : 'no'}</p>
+                  <p>Published: {post.published_at ? 'yes' : 'no'}{isDueNow(post) ? ' • due now' : ''}</p>
                 </div>
                 <button
                   disabled={loading}

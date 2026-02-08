@@ -593,4 +593,74 @@ describe('App', () => {
       expect(screen.getByText('Draft body copied for manual publish')).toBeInTheDocument();
     });
   });
+
+  it('shows publish queue summary counts', async () => {
+    const now = Date.now();
+    setupMockApi({
+      posts: [
+        {
+          id: 'post-due',
+          draft_id: 'draft-1',
+          scheduled_time: new Date(now - 60_000).toISOString(),
+          published_at: null,
+        },
+        {
+          id: 'post-future',
+          draft_id: 'draft-2',
+          scheduled_time: new Date(now + 3600_000).toISOString(),
+          published_at: null,
+        },
+        {
+          id: 'post-published',
+          draft_id: 'draft-3',
+          scheduled_time: new Date(now - 7200_000).toISOString(),
+          published_at: new Date(now - 1800_000).toISOString(),
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 3')).toBeInTheDocument());
+    expect(screen.getByText('Due now: 1')).toBeInTheDocument();
+    expect(screen.getByText('Unpublished: 2')).toBeInTheDocument();
+    expect(screen.getByText('Published: 1')).toBeInTheDocument();
+  });
+
+  it('filters publish queue by selected state', async () => {
+    const now = Date.now();
+    setupMockApi({
+      posts: [
+        {
+          id: 'due-aaaaaaaa',
+          draft_id: 'draft-1',
+          scheduled_time: new Date(now - 60_000).toISOString(),
+          published_at: null,
+        },
+        {
+          id: 'future-bbbbbbbb',
+          draft_id: 'draft-2',
+          scheduled_time: new Date(now + 7200_000).toISOString(),
+          published_at: null,
+        },
+        {
+          id: 'published-cccc',
+          draft_id: 'draft-3',
+          scheduled_time: new Date(now - 7200_000).toISOString(),
+          published_at: new Date(now - 1200_000).toISOString(),
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 3')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Queue filter'), { target: { value: 'due_now' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('due-aaaa')).toBeInTheDocument();
+      expect(screen.queryByText('future-b')).not.toBeInTheDocument();
+      expect(screen.queryByText('publishe')).not.toBeInTheDocument();
+      expect(screen.getByText(/due now/)).toBeInTheDocument();
+    });
+  });
 });

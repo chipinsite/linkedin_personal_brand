@@ -1059,6 +1059,7 @@ All AI generated content must adhere to:
 | 1.8 | 2026-02-08 | Added one-click frontend demo bootstrap workflow for seeded end-to-end interaction flow and expanded tests |
 | 1.9 | 2026-02-08 | Added live API walkthrough script for local runtime verification across core backend endpoints |
 | 2.0 | 2026-02-08 | Added frontend manual publish assistant checks and escalations panel aligned to linkedinAlgos guidance |
+| 2.1 | 2026-02-08 | Added publishing queue filters and queue-state summaries in frontend with expanded tests |
 
 ---
 
@@ -2151,3 +2152,51 @@ Result:
 
 - Checklist logic is advisory UI guidance and does not replace backend guardrails.
 - Full LinkedIn live API publishing remains intentionally disabled in MVP compliant manual-first mode.
+
+---
+
+## 38. v2.1 Publishing Queue Filtered Operations (2026-02-08)
+
+### 38.1 v2.1 Scope
+
+v2.1 improves operational execution speed in the publishing workflow by adding queue-state visibility and filtering:
+
+- queue summary counts for due/unpublished/published
+- publish list filtering to prioritize urgent actions
+
+### 38.2 v2.1 Implementation Added
+
+- Updated frontend publishing logic in:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- New publishing queue features:
+  - derived due-now state from `scheduled_time` and `published_at`
+  - summary metrics: `Due now`, `Unpublished`, `Published`
+  - queue filter selector:
+    - `All`
+    - `Due now`
+    - `Unpublished`
+    - `Published`
+  - filtered publishing list rendering with due-now marker
+- Expanded tests in:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added queue summary test
+  - added queue filter behavior test
+
+### 38.3 v2.1 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`23/23`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 38.4 Remaining Constraints
+
+- Due-now classification is UI-side guidance and may differ from backend timezone edge handling.
+- Backend remains source of truth for execution and cadence enforcement.

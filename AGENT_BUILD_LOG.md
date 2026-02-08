@@ -1736,3 +1736,89 @@ Exact thresholds for some ranking signals are heuristic in linkedinAlgos and not
 - Add basic browser E2E checks for critical play-mode workflows against a live local backend.
 
 ---
+
+## [2026-02-08 17:46 SAST] Build: v2.1 Publish Queue Filters
+
+### Build Phase
+Post Build
+
+### Goal
+Improve publishing operations by adding queue filtering/grouping so due and unpublished items are easier to action quickly.
+
+### Context
+Continuation from v2.0 next-step plan to improve operator scanning and decision speed in the Publishing workflow.
+
+### Scope
+In scope:
+- Add publish queue filter controls in frontend
+- Add grouped queue summary counts for publishing states
+- Add test coverage for filter behavior
+- Update version/docs/build logs
+Out of scope:
+- Backend endpoint/schema changes
+- LinkedIn API integration changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` to add:
+- `publishFilter` state in Publishing panel
+- derived due-now classification from `scheduled_time`/`published_at`
+- queue summary counters for `Due now`, `Unpublished`, and `Published`
+- filtered post list rendering for `All`, `Due now`, `Unpublished`, `Published`
+- due-now marker in publishing rows
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` with:
+- publish queue summary count validation test
+- queue filter behavior test
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md`:
+- version status moved to `v2.1`
+- play checklist now includes Queue filter workflow
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`:
+- added `2.1` row in version history
+- added section `38` documenting implementation and validation
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+As workflow volume grows, flat lists increase cognitive load. Filtered queue views surface urgent publish actions faster while preserving existing controls.
+
+### Assumptions
+- `scheduled_time` and `published_at` are present in post payloads.
+- Local timezone comparison is acceptable for due-now guidance in MVP.
+
+### Risks and Tradeoffs
+- Due-now classification may differ slightly from backend timezone logic in edge cases.
+- Mitigation: label as operational guidance and keep backend as source of truth.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified Publishing panel now surfaces queue summaries and filter control.
+Result:
+- Frontend tests passed (`23/23`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Publishing operations now include focused queue-state visibility and filtering, reducing operator scan effort and improving due-item handling flow.
+
+### Confidence Rating
+9/10. Functional behavior is covered by new tests and full smoke validation; minor residual risk remains around timezone edge cases for due-now guidance.
+
+### Known Gaps or Uncertainty
+Timezone edge cases around due-now may require backend-exposed normalized status in a later version.
+
+### Next Steps
+- Add simple browser E2E checks for critical operator paths in play mode.
+- Add persisted operator preferences (e.g., default queue filter) if needed.
+
+---
