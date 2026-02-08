@@ -1423,3 +1423,79 @@ Frontend action-level test coverage now includes all major console controls used
 ### Next Steps
 - Add live integration validation instructions and final run commands for user play testing.
 - Continue closing feature gaps that depend on backend capabilities and external integrations.
+
+---
+
+## [2026-02-08 17:10 SAST] Build: v1.7 Playable Local Run Mode
+
+### Build Phase
+Post Build
+
+### Goal
+Provide a direct local run experience so the user can launch and play with the frontend quickly.
+
+### Context
+User requested continued autonomous build work until a working frontend is ready to play with.
+
+### Scope
+In scope:
+- Add local startup helper scripts for backend and frontend
+- Add a simple playtest guide/checklist in docs
+- Ensure smoke validation still passes
+- Update build logs and version notes
+Out of scope:
+- Cloud deployment automation
+- Backend feature expansion
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added startup scripts:
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_backend.sh`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_frontend.sh`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_play_mode.sh`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` with play mode launch commands and click-through checklist.
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v1.7 version row and section 34.
+- Executed unified smoke validation after docs/scripts updates.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_backend.sh`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_frontend.sh`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/run_play_mode.sh`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A runnable product is not only code-complete; users need a fast startup path and clear interaction checklist to validate behavior.
+
+### Assumptions
+- Local machine already has Python virtualenv and Node dependencies prepared from previous builds.
+
+### Risks and Tradeoffs
+- Risk: helper scripts may assume environment state (venv/deps) that can differ across machines.
+- Mitigation: include clear fallback setup commands in README.
+
+### Tests and Validation
+Commands run:
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Reviewed script behavior and fallback checks for missing `.venv`/`.env`/`node_modules`
+Result:
+- Backend tests passed (`18/18`)
+- Frontend tests passed (`17/17`)
+- Frontend production build passed
+
+### Result
+Project now includes an explicit local play mode and startup scripts, making frontend interaction immediately accessible without manual multi-step orchestration.
+
+### Confidence Rating
+9/10. Scripts and docs are straightforward and validated against smoke workflow; environment differences across machines remain the main residual risk.
+
+### Known Gaps or Uncertainty
+- Combined local run mode is implemented; multi-terminal mode is also documented. Long-running worker/telegram processes are not started by play mode.
+
+### Next Steps
+- Continue closing remaining spec-level gaps that depend on backend/external integrations.
+- Run live play mode session and verify the interaction checklist in-browser.

@@ -47,6 +47,39 @@ This runs:
 - frontend automated smoke tests
 - frontend production build
 
+## Play mode
+
+For a quick interactive local run:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+./scripts/run_play_mode.sh
+```
+
+If you prefer separate terminals:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+./scripts/run_backend.sh
+```
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+./scripts/run_frontend.sh
+```
+
+### Play checklist
+
+At `http://127.0.0.1:5173`:
+
+- click `Generate`, then `Approve`/`Reject` on pending drafts
+- click `Create Draft` to add a manual draft
+- click `Run Due` and `Confirm publish` in Publishing
+- update metrics with `Update metrics`
+- add a comment with `Add Comment`
+- run `Poll`, `Ingest`, `Recompute`, and `Send`
+- test `Kill ON/OFF` and `Posting ON/OFF`
+
 ## Alignment rule
 
 All feature changes must remain aligned with:

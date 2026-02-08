@@ -1055,6 +1055,7 @@ All AI generated content must adhere to:
 | 1.4 | 2026-02-08 | Expanded frontend automated tests to cover source ingest and daily report send action workflows |
 | 1.5 | 2026-02-08 | Added interactive frontend workflows for manual draft creation, post metrics updates, and comment creation with expanded action tests |
 | 1.6 | 2026-02-08 | Completed frontend core control action test coverage for publish-due, poll, recompute, and admin kill/posting toggles |
+| 1.7 | 2026-02-08 | Added local play-mode startup scripts and frontend interaction checklist for hands-on testing |
 
 ---
 
@@ -1975,3 +1976,46 @@ Result:
 ### 33.4 Remaining Constraints
 
 - Frontend test suite is now broad at component/action level but still not a substitute for full end-to-end browser tests against live services.
+
+---
+
+## 34. v1.7 Local Play Mode Enablement (2026-02-08)
+
+### 34.1 v1.7 Scope
+
+v1.7 adds a direct local run mode so the user can interact with the frontend immediately without manual process orchestration.
+
+### 34.2 v1.7 Implementation Added
+
+- Added startup scripts:
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/run_backend.sh`
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/run_frontend.sh`
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/run_play_mode.sh`
+- `run_backend.sh`:
+  - validates venv and env file
+  - applies migrations
+  - starts FastAPI on `127.0.0.1:8000`
+- `run_frontend.sh`:
+  - ensures deps and `.env`
+  - starts Vite on `127.0.0.1:5173`
+- `run_play_mode.sh`:
+  - starts backend in background with log capture
+  - performs health check
+  - starts frontend and handles cleanup on exit
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` with a play checklist across major UI actions.
+
+### 34.3 v1.7 Validation Status
+
+Executed on 2026-02-08:
+
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`18/18`)
+- frontend tests passed (`17/17`)
+- frontend build passed
+
+### 34.4 Remaining Constraints
+
+- Full spec parity still depends on backend/external-integration capabilities not yet implemented end-to-end (e.g., full WhatsApp/email operational channels and official LinkedIn write API mode).
