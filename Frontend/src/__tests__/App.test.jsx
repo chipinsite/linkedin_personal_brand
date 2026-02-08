@@ -204,6 +204,7 @@ function openView(name) {
 describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it('renders dashboard and loads initial data', async () => {
@@ -662,5 +663,40 @@ describe('App', () => {
       expect(screen.queryByText('publishe')).not.toBeInTheDocument();
       expect(screen.getByText(/due now/)).toBeInTheDocument();
     });
+  });
+
+  it('restores active view from localStorage on reload', async () => {
+    localStorage.setItem('app.activeView', 'engagement');
+    setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Engagement' })).toBeInTheDocument());
+  });
+
+  it('restores dashboard queue filter from localStorage on reload', async () => {
+    const now = Date.now();
+    localStorage.setItem('app.dashboard.publishFilter', 'due_now');
+    setupMockApi({
+      posts: [
+        {
+          id: 'due-11111111',
+          draft_id: 'draft-1',
+          scheduled_time: new Date(now - 60_000).toISOString(),
+          published_at: null,
+        },
+        {
+          id: 'future-22222',
+          draft_id: 'draft-2',
+          scheduled_time: new Date(now + 3600_000).toISOString(),
+          published_at: null,
+        },
+      ],
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Posts tracked: 2')).toBeInTheDocument());
+    expect(screen.getByDisplayValue('Due now')).toBeInTheDocument();
+    expect(screen.getByText('due-1111')).toBeInTheDocument();
+    expect(screen.queryByText('future-2')).not.toBeInTheDocument();
   });
 });

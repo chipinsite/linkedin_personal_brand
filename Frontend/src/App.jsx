@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import DashboardView from './components/views/DashboardView';
 import ContentView from './components/views/ContentView';
@@ -7,8 +7,22 @@ import SettingsView from './components/views/SettingsView';
 import { C } from './constants/theme';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      return localStorage.getItem('app.activeView') || 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [config, setConfig] = useState({ kill_switch: false });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('app.activeView', activeView);
+    } catch {
+      // ignore storage write failures in constrained environments
+    }
+  }, [activeView]);
 
   const views = {
     dashboard: <DashboardView />,

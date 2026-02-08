@@ -1060,6 +1060,7 @@ All AI generated content must adhere to:
 | 1.9 | 2026-02-08 | Added live API walkthrough script for local runtime verification across core backend endpoints |
 | 2.0 | 2026-02-08 | Added frontend manual publish assistant checks and escalations panel aligned to linkedinAlgos guidance |
 | 2.1 | 2026-02-08 | Added publishing queue filters and queue-state summaries in frontend with expanded tests |
+| 2.3 | 2026-02-08 | Added persisted operator UI preferences (active view and queue filter) with reload-state tests |
 
 ---
 
@@ -2200,3 +2201,48 @@ Result:
 
 - Due-now classification is UI-side guidance and may differ from backend timezone edge handling.
 - Backend remains source of truth for execution and cadence enforcement.
+
+---
+
+## 39. v2.3 Persisted Operator Preferences (2026-02-08)
+
+### 39.1 v2.3 Scope
+
+v2.3 improves daily operator ergonomics by preserving common UI state across reloads:
+
+- active sidebar view persistence
+- publishing queue filter persistence
+
+### 39.2 v2.3 Implementation Added
+
+- Updated app shell:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+  - reads/writes `app.activeView` via `localStorage` with safe fallback behavior
+- Updated dashboard view:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - reads/writes `app.dashboard.publishFilter` via `localStorage` with safe fallback behavior
+- Updated sidebar release marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version label set to `v2.3`
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added active-view restore test
+  - added queue-filter restore test
+
+### 39.3 v2.3 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`25/25`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 39.4 Remaining Constraints
+
+- Preferences are browser-local only and do not sync across devices/sessions.

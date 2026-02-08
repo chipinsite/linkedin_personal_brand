@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v2.1` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v2.3` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -101,6 +101,7 @@ At `http://127.0.0.1:5173`:
 - click `Create Draft` to add a manual draft
 - click `Run Due` and `Confirm publish` in Publishing
 - use `Queue filter` in Publishing to focus `Due now`, `Unpublished`, or `Published` posts
+- view and queue preferences now persist across page reloads
 - update metrics with `Update metrics`
 - add a comment with `Add Comment`
 - review high-value items in the `Escalations` panel

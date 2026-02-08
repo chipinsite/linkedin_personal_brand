@@ -2006,3 +2006,94 @@ The frontend theme constants module is now valid `.js` for Vite import analysis,
 - Restart the dev server and hard refresh browser to clear stale HMR state.
 
 ---
+
+## [2026-02-08 19:19 SAST] Build: v2.3 Persist Operator Preferences
+
+### Build Phase
+Post Build
+
+### Goal
+Improve day-to-day usability by persisting operator UI preferences across page reloads.
+
+### Context
+Autonomous continuation toward 90% usability target; recurring operator controls currently reset on refresh.
+
+### Scope
+In scope:
+- Persist selected app view in frontend shell
+- Persist dashboard publish queue filter selection
+- Add tests validating persistence behavior
+- Update version/docs/build logs
+Out of scope:
+- Backend API/schema changes
+- Authentication/session persistence changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`:
+- added read/write persistence for `activeView` using `localStorage` key `app.activeView`
+- added safe fallback handling for unavailable storage contexts
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`:
+- added read/write persistence for `publishFilter` using `localStorage` key `app.dashboard.publishFilter`
+- added safe fallback handling for unavailable storage contexts
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- updated visible version marker to `v2.3`
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- clear `localStorage` after each test for isolation
+- added active-view restore test
+- added queue-filter restore test
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md`:
+- version status now `v2.3`
+- added play checklist note on preference persistence
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`:
+- added `2.3` version history row
+- added section `39` documenting scope, implementation, and validation
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Persistent preferences reduce repetitive setup actions and make the console faster to operate during repeated daily workflows.
+
+### Assumptions
+- Browser `localStorage` is available in play mode and test environment.
+- Persisting only low-risk UI state is acceptable without additional consent prompts.
+
+### Risks and Tradeoffs
+- Risk: stale local preferences can hide data unexpectedly (e.g., due_now filter saved).
+- Mitigation: keep clear labels and easy filter switching.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Confirmed sidebar view and dashboard queue filter remain selected after reload.
+Result:
+- Frontend tests passed (`25/25`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Operators now return to their last-used view and publish queue filter automatically, reducing repeated setup clicks in daily workflows.
+
+### Confidence Rating
+9/10. Behavior is validated with dedicated persistence tests and full smoke pass; residual risk is limited to browser storage-disabled environments.
+
+### Known Gaps or Uncertainty
+- Preferences are local-browser only and do not sync across devices.
+
+### Next Steps
+- Add lightweight browser-run E2E play-mode script for critical view/action flows.
+- Add optional reset-preferences control in Settings for quick state recovery.
+
+---

@@ -32,7 +32,13 @@ export default function DashboardView() {
 
   const [publishUrl, setPublishUrl] = useState('https://linkedin.com/feed/update/urn:li:activity:');
   const [feedInput, setFeedInput] = useState('https://digiday.com/feed/,https://www.adexchanger.com/feed/');
-  const [publishFilter, setPublishFilter] = useState('all');
+  const [publishFilter, setPublishFilter] = useState(() => {
+    try {
+      return localStorage.getItem('app.dashboard.publishFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [metricsTargetPostId, setMetricsTargetPostId] = useState('');
   const [metricsInput, setMetricsInput] = useState(METRIC_DEFAULTS);
 
@@ -78,6 +84,14 @@ export default function DashboardView() {
   useEffect(() => {
     withAction('Data refreshed', refreshData);
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('app.dashboard.publishFilter', publishFilter);
+    } catch {
+      // ignore storage write failures in constrained environments
+    }
+  }, [publishFilter]);
 
   async function bootstrapDemoData() {
     const seedBody = `A practical observation on Adtech execution and what teams can do differently this week. [demo ${Date.now()}]`;
