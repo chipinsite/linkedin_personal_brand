@@ -55,6 +55,102 @@ Rate confidence in this build from 1 to 10 and explain why.
 <List next steps>
 
 ---
+## [2026-02-08 21:05 SAST] Build: v4.2 Runtime DB Fallback and Local CORS Stabilization
+
+### Build Phase
+Post Build
+
+### Goal
+Ensure backend runtime works out-of-the-box for single-user local operation without PostgreSQL dependency and eliminate local browser preflight failures.
+
+### Context
+User reported runtime `500` errors after startup with `psycopg OperationalError` (`database "linkedbrand" does not exist`) and repeated `OPTIONS` request failures from the frontend.
+
+### Scope
+In scope:
+- Add runtime DB fallback behavior aligned with local SQLite-first operation
+- Adjust local environment defaults so copied `.env` is immediately usable
+- Harden local CORS defaults to reduce preflight failures in typical dev origins
+- Update docs and version notes
+Out of scope:
+- Production PostgreSQL deployment redesign
+- Multi-user or hosted environment changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added runtime DB fallback for local development:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+- if configured non-SQLite DB is unreachable in `APP_ENV=dev`, backend falls back to `sqlite+pysqlite:///./local_dev.db`
+- Added default local DB URL in settings:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+- `database_url` now defaults to `sqlite+pysqlite:///./local_dev.db`
+- Hardened Alembic online migration fallback:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+- in `APP_ENV=dev`, failed online DB connection falls back to local SQLite migration target
+- Stabilized local CORS handling across localhost ports:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+- uses `allow_origin_regex` for `localhost` and `127.0.0.1` with any port
+- Updated local backend env defaults:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example`
+- default `DATABASE_URL` changed to SQLite local file
+- Updated release marker/docs:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.2`
+- `/Users/sphiwemawhayi/Personal Brand/README.md` updated setup notes
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` added `v4.2` section
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+The current failure happens because runtime DB config still points to Postgres in `.env`, while local use expects no mandatory external DB. SQLite-first defaults remove friction and match single-user local objective.
+
+### Assumptions
+- User is running local single-user mode.
+- PostgreSQL should remain optional rather than required for first-run.
+
+### Risks and Tradeoffs
+- Risk: production users might accidentally run SQLite defaults.
+- Mitigation: keep PostgreSQL override documented and supported via `DATABASE_URL`.
+
+### Tests and Validation
+Commands run:
+- `./scripts/v1_smoke.sh`
+- `cd Backend && APP_ENV=dev DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/linkedbrand ./.venv/bin/alembic upgrade head`
+- `cd Backend && APP_ENV=dev DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/linkedbrand ./.venv/bin/python - <<'PY' ... TestClient checks ... PY`
+Manual checks:
+- Confirmed key API endpoints (`/drafts`, `/posts`, `/sources`, `/reports/daily`, `/admin/config`) return `200` under fallback path.
+Result:
+- Backend tests passed (`19/19`)
+- Frontend tests passed (`35/35`)
+- Frontend production build passed
+- Unified smoke script passed
+- Alembic migration succeeds with unreachable Postgres URL in `dev` via SQLite fallback
+- Runtime API endpoints succeed with unreachable Postgres URL in `dev` via SQLite fallback
+
+### Result
+Local single-user startup is operational even when `.env` points to unavailable Postgres; backend now self-recovers to SQLite in `dev`, and local frontend preflight compatibility is broader.
+
+### Confidence Rating
+9/10. The exact reported failure mode was reproduced and resolved with direct runtime and migration checks; residual risk is limited to non-local production-like environments intentionally outside this fallback behavior.
+
+### Known Gaps or Uncertainty
+- Existing local `.env` files may still explicitly point to Postgres; fallback now handles this in `dev`, but users who want deterministic SQLite should still set `DATABASE_URL` explicitly.
+
+### Next Steps
+1. Commit and push `v4.2` fixes.
+2. Ask user to update existing `Backend/.env` if they prefer explicit SQLite over automatic dev fallback.
+
+---
 
 ## Build Log
 

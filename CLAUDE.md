@@ -2742,3 +2742,58 @@ Result:
 ### 49.4 Remaining Constraints
 
 - If a user already has an outdated local `.env` missing `DATABASE_URL`, they should either set SQLite fallback there or recreate from `.env.example` for predictable behavior.
+
+---
+
+## 50. v4.2 Runtime DB Fallback and Local CORS Stabilization (2026-02-08)
+
+### 50.1 v4.2 Scope
+
+v4.2 resolves local runtime failures when `.env` points to unavailable PostgreSQL and broadens local browser compatibility:
+
+- runtime DB fallback in dev if PostgreSQL target is unreachable
+- migration fallback in dev if configured PostgreSQL target cannot be opened
+- SQLite-first default in backend `.env.example`
+- local CORS handling for localhost/127.0.0.1 on arbitrary dev ports
+
+### 50.2 v4.2 Implementation Added
+
+- Runtime DB fallback:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+  - if `APP_ENV=dev` and configured non-SQLite DB connection fails at startup, backend falls back to `sqlite+pysqlite:///./local_dev.db`
+- Settings default for DB URL:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+  - `database_url` default set to `sqlite+pysqlite:///./local_dev.db`
+- Migration fallback hardening:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+  - in dev, if configured online migration connection fails, falls back to local SQLite migration target
+- Local CORS stabilization:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+  - allows localhost/127.0.0.1 origins across dev ports via `allow_origin_regex`
+- Backend env defaults:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example`
+  - default `DATABASE_URL` switched to local SQLite
+- Version/docs updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.2`
+  - `/Users/sphiwemawhayi/Personal Brand/README.md` updated local setup note
+
+### 50.3 v4.2 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `cd Backend && env -u DATABASE_URL ./.venv/bin/alembic upgrade head`
+
+Result:
+
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- backend tests passed (`19/19`)
+- unified smoke run passed (backend + frontend + build)
+- alembic online migration fallback path works in local mode
+
+### 50.4 Remaining Constraints
+
+- Existing local `.env` files that hard-code Postgres may still require explicit update to SQLite if users prefer deterministic non-fallback behavior.

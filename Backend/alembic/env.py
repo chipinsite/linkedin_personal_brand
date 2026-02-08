@@ -4,6 +4,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.exc import SQLAlchemyError
 from alembic import context
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +43,27 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = get_url()
+    database_url = get_url()
+    configuration["sqlalchemy.url"] = database_url
+    connectable = engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    try:
+        with connectable.connect() as connection:
+            context.configure(connection=connection, target_metadata=Base.metadata)
+
+            with context.begin_transaction():
+                context.run_migrations()
+        return
+    except SQLAlchemyError:
+        is_local_dev = os.getenv("APP_ENV", "dev").lower() == "dev"
+        if not is_local_dev or database_url.startswith("sqlite"):
+            raise
+
+    fallback_path = PROJECT_ROOT / "local_dev.db"
+    configuration["sqlalchemy.url"] = f"sqlite+pysqlite:///{fallback_path}"
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

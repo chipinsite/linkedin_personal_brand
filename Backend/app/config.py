@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     app_read_api_key: str | None = None
     app_write_api_key: str | None = None
     auth_enforce_read: bool = False
-    database_url: str
+    database_url: str = "sqlite+pysqlite:///./local_dev.db"
     redis_url: str = "redis://localhost:6379/0"
     timezone: str = "Africa/Johannesburg"
     posting_window_start: str = "08:00"
