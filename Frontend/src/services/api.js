@@ -2,10 +2,10 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 async function request(path, options = {}) {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  };
+  const headers = { ...(options.headers || {}) };
+  if (options.body !== undefined && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (API_KEY) {
     headers['x-api-key'] = API_KEY;
   }

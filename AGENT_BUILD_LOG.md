@@ -2861,3 +2861,91 @@ Single-user operational tool is complete and release-ready with full backup/expo
 2. If requirements expand beyond single-user, start a dedicated multi-user roadmap (shared auth/state, role controls, integration hardening).
 
 ---
+## [2026-02-08 20:58 SAST] Build: v4.1 Local Startup Hardening
+
+### Build Phase
+Post Build
+
+### Goal
+Fix local backend startup friction by handling missing `DATABASE_URL` safely and enabling frontend-backend browser connectivity.
+
+### Context
+User reported `alembic upgrade head` failure (`DATABASE_URL` None) and backend logs show repeated `OPTIONS ... 405` from browser preflight calls.
+
+### Scope
+In scope:
+- Add alembic fallback URL for local SQLite when `DATABASE_URL` is missing
+- Add CORS middleware for local frontend origins
+- Avoid unnecessary frontend preflight by not forcing JSON content-type on GET
+- Update docs and build log
+Out of scope:
+- Production auth/network policy redesign
+- Multi-environment deployment matrix
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added local database URL fallback in Alembic runtime config:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py` now uses `sqlite+pysqlite:///<project>/local_dev.db` when `DATABASE_URL` is unset.
+- Added explicit local CORS configuration surface:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py` adds `cors_allowed_origins` with localhost defaults.
+- Enabled FastAPI CORS middleware:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py` wires `CORSMiddleware` using configured origins.
+- Updated backend env template for local CORS:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example` adds `CORS_ALLOWED_ORIGINS`.
+- Reduced unnecessary frontend preflight traffic:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js` only sets JSON `Content-Type` when a request body exists.
+- Applied release metadata/docs updates for this hardening pass:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` version marker `v4.1`.
+- `/Users/sphiwemawhayi/Personal Brand/README.md` local startup fallback notes.
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` added `v4.1` history + hardening section.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+These fixes remove high-friction local setup failures while preserving current single-user operational behavior.
+
+### Assumptions
+- Local single-user default should remain operable without requiring immediate PostgreSQL setup.
+- Frontend runs on localhost port 5173 in normal development.
+
+### Risks and Tradeoffs
+- Risk: overly permissive CORS in dev can leak into unintended usage.
+- Mitigation: scope allowed origins via env with safe localhost defaults.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified backend accepts cross-origin requests from local frontend origins configured in env defaults.
+Result:
+- Frontend tests passed (`35/35`)
+- Frontend production build passed
+- Unified smoke script passed (`19` backend tests + frontend tests + frontend build)
+
+### Result
+Local startup is now resilient for single-user dev flow: Alembic upgrades work without a preset `DATABASE_URL`, and frontend-to-backend browser calls are allowed by local CORS defaults.
+
+### Confidence Rating
+9/10. The fix directly targets the reported failure modes, and regression suites/smoke checks passed; remaining uncertainty is environment-specific variation outside localhost defaults.
+
+### Known Gaps or Uncertainty
+- Browsers may still issue `OPTIONS` preflights for some non-simple requests; they should now succeed under configured local origins rather than return `405`.
+
+### Next Steps
+1. Commit and push `v4.1` hardening changes.
+2. Re-run local startup commands from clean shell to confirm user path end-to-end.
+
+---

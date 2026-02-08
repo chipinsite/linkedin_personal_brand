@@ -20,7 +20,11 @@ if config.config_file_name is not None:
 
 
 def get_url():
-    return os.getenv("DATABASE_URL")
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+    fallback_path = PROJECT_ROOT / "local_dev.db"
+    return f"sqlite+pysqlite:///{fallback_path}"
 
 
 def run_migrations_offline() -> None:

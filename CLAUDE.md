@@ -1070,6 +1070,7 @@ All AI generated content must adhere to:
 | 3.0 | 2026-02-08 | Added alert snooze countdown visibility and clear-snoozes controls with expanded tests |
 | 3.1 | 2026-02-08 | Added minute-level live countdown ticking for snoozed alerts with interval test coverage |
 | 4.0 | 2026-02-08 | Finalised single-user operational release with full-state backup export and completion status |
+| 4.1 | 2026-02-08 | Hardened local startup: alembic DB fallback, CORS enablement, and reduced preflight requests |
 
 ---
 
@@ -2689,3 +2690,55 @@ Result:
 ### 48.4 Remaining Constraints
 
 - Completion status applies to single-user operational scope; multi-user collaboration and official LinkedIn write automation remain intentionally out of scope.
+
+---
+
+## 49. v4.1 Local Startup Hardening (2026-02-08)
+
+### 49.1 v4.1 Scope
+
+v4.1 addresses reported local startup friction:
+
+- prevent migration failure when `DATABASE_URL` is missing
+- allow browser preflight/CORS for local frontend usage
+- reduce unnecessary preflight traffic from frontend API calls
+
+### 49.2 v4.1 Implementation Added
+
+- Alembic fallback URL:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+  - if `DATABASE_URL` is unset, use local SQLite fallback (`Backend/local_dev.db`)
+- CORS middleware in backend app:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py`
+  - local allowed origins from config
+- Config support for CORS origins:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+  - added `cors_allowed_origins` with localhost defaults
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/.env.example`
+  - added `CORS_ALLOWED_ORIGINS` example value
+- Frontend request header hardening:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+  - sets `Content-Type: application/json` only when request body exists
+  - avoids triggering browser preflight for simple GET requests
+- Setup guidance update:
+  - `/Users/sphiwemawhayi/Personal Brand/README.md`
+  - documented SQLite fallback `DATABASE_URL` for local non-Postgres setup
+
+### 49.3 v4.1 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- backend tests passed (`19/19`)
+- unified smoke run passed (backend + frontend + build)
+
+### 49.4 Remaining Constraints
+
+- If a user already has an outdated local `.env` missing `DATABASE_URL`, they should either set SQLite fallback there or recreate from `.env.example` for predictable behavior.

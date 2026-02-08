@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v4.0` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v4.1` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 - Single-user operational mode is complete and release-ready.
 
 ## Run locally
@@ -20,6 +20,12 @@ python3 -m venv .venv
 cp .env.example .env
 ./.venv/bin/alembic upgrade head
 ./.venv/bin/uvicorn app.main:app --reload
+```
+
+If you are not running local Postgres yet, set SQLite fallback in `.env`:
+
+```bash
+DATABASE_URL=sqlite+pysqlite:///./local_dev.db
 ```
 
 ### 2. Frontend setup
