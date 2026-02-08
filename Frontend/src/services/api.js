@@ -63,6 +63,7 @@ export const api = {
   adminConfig: () => request('/admin/config'),
   algorithmAlignment: () => request('/admin/algorithm-alignment'),
   auditLogs: () => request('/admin/audit-logs'),
+  exportState: () => request('/admin/export-state'),
   killSwitchOn: () => request('/admin/kill-switch/on', { method: 'POST' }),
   killSwitchOff: () => request('/admin/kill-switch/off', { method: 'POST' }),
   postingOn: () => request('/admin/posting/on', { method: 'POST' }),

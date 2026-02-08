@@ -6,7 +6,8 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v3.1` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v4.0` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- Single-user operational mode is complete and release-ready.
 
 ## Run locally
 
@@ -121,6 +122,7 @@ At `http://127.0.0.1:5173`:
 - use `Snooze 2h` on specific dashboard alerts to temporarily reduce repeated noise
 - use `Clear Snoozes` and the snoozed countdown summary to safely restore hidden alerts
 - snooze countdowns now auto-refresh each minute without manual refresh
+- export full operational backup from `Settings` via `Export Backup`
 - view and queue preferences now persist across page reloads
 - use `Reset UI Preferences` in `Settings` to restore default view/filter state
 - update metrics with `Update metrics`

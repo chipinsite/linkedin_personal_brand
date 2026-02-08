@@ -56,6 +56,21 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
     }
   }
 
+  async function exportBackup() {
+    const payload = await api.exportState();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `single_user_backup_${stamp}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     withAction('Data refreshed', refreshData);
   }, []);
@@ -101,6 +116,7 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
           >
             Reset UI Preferences
           </Button>
+          <Button disabled={loading} onClick={() => withAction('Backup exported', exportBackup)}>Export Backup</Button>
         </div>
         <div style={{ marginTop: '12px', fontSize: '12px', color: C.textMuted }}>
           {config ? `Timezone: ${config.timezone} · Posting: ${String(config.posting_enabled)} · Kill switch: ${String(config.kill_switch)}` : 'Loading config...'}

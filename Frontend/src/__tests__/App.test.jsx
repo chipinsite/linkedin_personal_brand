@@ -191,6 +191,9 @@ function setupMockApi(overrides = {}) {
     }
     if (method === 'GET' && path === '/admin/algorithm-alignment') return mockJson(state.alignment);
     if (method === 'GET' && path === '/admin/audit-logs') return mockJson(state.auditLogs);
+    if (method === 'GET' && path === '/admin/export-state') {
+      return mockJson({ generated_at: '2026-02-08T12:00:00Z', drafts: state.drafts, posts: state.posts });
+    }
     if (method === 'GET' && path === '/engagement/status') return mockJson(state.engagementStatus);
     if (method === 'POST' && path === '/engagement/poll') return mockJson({ processed_posts: 0, stored_comments: 0 });
 
@@ -372,6 +375,30 @@ describe('App', () => {
 
     delete window.__APP_ALERT_TICK_MS__;
     nowSpy.mockRestore();
+  });
+
+  it('calls export state endpoint from settings backup action', async () => {
+    const createObjectURL = vi.fn(() => 'blob:backup');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    openView('Settings');
+    await waitFor(() => expect(screen.getByText('System Controls')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Export Backup' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'GET' && call.path === '/admin/export-state')).toBe(true);
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(revokeObjectURL).toHaveBeenCalled();
+      expect(screen.getByText('Backup exported')).toBeInTheDocument();
+    });
+
+    clickSpy.mockRestore();
   });
 
   it('calls generate draft endpoint when Generate is clicked', async () => {

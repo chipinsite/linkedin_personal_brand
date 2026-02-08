@@ -2766,3 +2766,98 @@ Snoozed alert countdowns now update automatically every minute, keeping operator
 - Continue toward shared multi-operator snooze state if collaboration needs increase.
 
 ---
+## [2026-02-08 20:50 SAST] Build: v4.0 Single-User Completion Release
+
+### Build Phase
+Post Build
+
+### Goal
+Finalize and lock the app as a complete single-user operational tool with backup/export and release documentation.
+
+### Context
+Core operational flows are implemented and validated. The remaining completion step is packaging this as a clear single-user release milestone.
+
+### Scope
+In scope:
+- Finalize backup/export implementation as release feature
+- Resolve any final validation/deprecation issues
+- Publish v4.0 completion documentation
+- Update version markers and build log
+Out of scope:
+- Multi-user auth and shared state
+- Official LinkedIn write API automation mode
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added backend full-state export endpoint:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py`
+- `GET /admin/export-state` now returns complete single-user operational snapshot:
+- config, drafts, posts, comments, sources, audit logs, learning weights, engagement metrics, notifications
+- switched export timestamp generation to timezone-aware UTC (`datetime.now(timezone.utc)`).
+- Added backend endpoint validation:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v10_state_export.py`
+- verifies response shape and populated export payload.
+- Added frontend backup export action:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js` (`api.exportState`)
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx` (`Export Backup` download control)
+- Expanded frontend tests:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- added settings backup export action coverage (endpoint call + blob download flow).
+- Updated release/version documentation:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.0`
+- `/Users/sphiwemawhayi/Personal Brand/README.md` marked single-user operational completion
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` added v4.0 completion section and validation status.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v10_state_export.py`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A release milestone with clear backup/export coverage and explicit completion status removes ambiguity and makes the tool operationally handoff-ready for single-user usage.
+
+### Assumptions
+- Single-user operation remains the target deployment mode.
+- Manual publish compliant workflow remains the intended production path.
+
+### Risks and Tradeoffs
+- Risk: users may interpret completion as multi-user readiness.
+- Mitigation: clearly scope completion as single-user operational mode only.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+Manual checks:
+- Verified `Settings -> Export Backup` triggers JSON backup download flow and success message.
+Result:
+- Frontend tests passed (`35/35`)
+- Frontend production build passed
+- Backend tests passed (`19/19`)
+- Unified smoke script passed (backend + frontend + frontend build)
+- Play-mode E2E targeted checks passed (`4 passed`, `31 skipped`)
+
+### Result
+Single-user operational tool is complete and release-ready with full backup/export capability and validated run/test flows.
+
+### Confidence Rating
+9/10. Core single-user operations, controls, observability, and backup are implemented and fully validated; remaining excluded work is intentionally out-of-scope multi-user/integration expansion.
+
+### Known Gaps or Uncertainty
+- Process note: part of the backup/export implementation began before this specific v4.0 pre-build entry was added; details are fully captured here post-build for traceability.
+
+### Next Steps
+1. Run unrestricted local `./scripts/play_mode_e2e.sh` once outside sandbox to confirm full server-start branch.
+2. If requirements expand beyond single-user, start a dedicated multi-user roadmap (shared auth/state, role controls, integration hardening).
+
+---

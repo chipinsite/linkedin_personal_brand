@@ -1069,6 +1069,7 @@ All AI generated content must adhere to:
 | 2.9 | 2026-02-08 | Added per-alert dashboard snooze controls with local persistence and expiry coverage |
 | 3.0 | 2026-02-08 | Added alert snooze countdown visibility and clear-snoozes controls with expanded tests |
 | 3.1 | 2026-02-08 | Added minute-level live countdown ticking for snoozed alerts with interval test coverage |
+| 4.0 | 2026-02-08 | Finalised single-user operational release with full-state backup export and completion status |
 
 ---
 
@@ -2631,3 +2632,60 @@ Result:
 ### 47.4 Remaining Constraints
 
 - Tick granularity remains minute-level by design; sub-minute countdown precision is intentionally not implemented.
+
+---
+
+## 48. v4.0 Single-User Completion Release (2026-02-08)
+
+### 48.1 v4.0 Scope
+
+v4.0 marks completion of the single-user operational tool scope:
+
+- all daily operational flows are runnable from the UI
+- single-command validation workflows are in place
+- full operational state backup export is available
+
+### 48.2 v4.0 Implementation Added
+
+- Added backup/export endpoint:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py`
+  - `GET /admin/export-state` returns full single-user operational snapshot:
+    - config
+    - drafts/posts/comments/sources
+    - audit logs and learning weights
+    - engagement metrics and notifications
+  - switched export timestamp generation to timezone-aware UTC datetime
+- Added backup export control in settings:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+  - `Export Backup` downloads formatted JSON snapshot
+- Added API client support:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+  - `api.exportState()`
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v10_state_export.py`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - includes frontend export action call-path + download behavior coverage
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v4.0`
+
+### 48.3 v4.0 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+
+Result:
+
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- backend tests passed (`19/19`)
+- unified smoke run passed (backend + frontend + build)
+- play-mode E2E targeted checks passed (`4 passed`, `31 skipped`)
+
+### 48.4 Remaining Constraints
+
+- Completion status applies to single-user operational scope; multi-user collaboration and official LinkedIn write automation remain intentionally out of scope.

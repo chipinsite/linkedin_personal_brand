@@ -1,15 +1,46 @@
+import enum
+import uuid
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..models import AuditLog
+from ..models import (
+    AppConfig,
+    AuditLog,
+    Comment,
+    Draft,
+    EngagementMetric,
+    LearningWeight,
+    NotificationLog,
+    PublishedPost,
+    SourceMaterial,
+)
 from ..schemas import AuditLogRead
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
 from ..services.config_state import get_or_create_app_config
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _serialize_value(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, enum.Enum):
+        return value.value
+    return value
+
+
+def _serialize_rows(rows):
+    output = []
+    for row in rows:
+        output.append({column.name: _serialize_value(getattr(row, column.name)) for column in row.__table__.columns})
+    return output
 
 
 @router.get("/config")
@@ -83,4 +114,25 @@ def algorithm_alignment(_auth: None = Depends(require_read_access)):
             "topical_consistency": "adtech/ai niche prompts enforced",
             "comment_polling_windows": "10m/30m/2h over 48h monitoring window",
         },
+    }
+
+
+@router.get("/export-state")
+def export_state(db: Session = Depends(get_db), _auth: None = Depends(require_read_access)):
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "meta": {
+            "app": "linkedin_personal_brand",
+            "mode": "single-user",
+            "version_tag": "v4.0",
+        },
+        "config": _serialize_rows(db.query(AppConfig).all()),
+        "drafts": _serialize_rows(db.query(Draft).order_by(Draft.created_at.desc()).all()),
+        "posts": _serialize_rows(db.query(PublishedPost).order_by(PublishedPost.scheduled_time.desc()).all()),
+        "comments": _serialize_rows(db.query(Comment).order_by(Comment.commented_at.desc()).all()),
+        "sources": _serialize_rows(db.query(SourceMaterial).order_by(SourceMaterial.created_at.desc()).all()),
+        "audit_logs": _serialize_rows(db.query(AuditLog).order_by(AuditLog.created_at.desc()).all()),
+        "learning_weights": _serialize_rows(db.query(LearningWeight).all()),
+        "engagement_metrics": _serialize_rows(db.query(EngagementMetric).order_by(EngagementMetric.collected_at.desc()).all()),
+        "notifications": _serialize_rows(db.query(NotificationLog).order_by(NotificationLog.created_at.desc()).all()),
     }
