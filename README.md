@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v2.9` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v3.0` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -119,6 +119,7 @@ At `http://127.0.0.1:5173`:
 - use `Queue filter` in Publishing to focus `Due now`, `Unpublished`, or `Published` posts
 - review `Operational Alerts` on Dashboard for kill switch, posting, due queue, and escalation warnings
 - use `Snooze 2h` on specific dashboard alerts to temporarily reduce repeated noise
+- use `Clear Snoozes` and the snoozed countdown summary to safely restore hidden alerts
 - view and queue preferences now persist across page reloads
 - use `Reset UI Preferences` in `Settings` to restore default view/filter state
 - update metrics with `Update metrics`

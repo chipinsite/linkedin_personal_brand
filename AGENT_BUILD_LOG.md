@@ -2600,3 +2600,86 @@ Dashboard operational alerts now support temporary per-alert snooze control, red
 - Consider backend-backed multi-operator snooze preferences if team usage expands.
 
 ---
+## [2026-02-08 20:13 SAST] Build: v3.0 Alert Countdown and Clear Controls
+
+### Build Phase
+Post Build
+
+### Goal
+Improve snooze transparency and control by showing active snooze countdowns and providing one-click clear for snoozed alerts.
+
+### Context
+v2.9 introduced alert snoozing, but operators cannot see remaining snooze time or quickly unsnooze all alerts.
+
+### Scope
+In scope:
+- Show snoozed alert count and per-alert remaining snooze time
+- Add global `Clear Snoozes` action in dashboard alerts panel
+- Add tests for countdown visibility and clear behavior
+- Update version/docs/build log
+Out of scope:
+- Backend persistence or multi-user snooze sharing
+- Real-time second-by-second timers
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`:
+- added snoozed-alert summary metadata and compact remaining-time display
+- added `Clear Snoozes` action when snoozed alerts exist
+- preserved existing per-alert `Snooze 2h` controls and active-alert filtering
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added test for snoozed countdown summary visibility
+- added test for clear-snoozes behavior and storage reset
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v3.0`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v3.0 documentation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Operators need explicit feedback about hidden alerts and fast recovery controls to avoid silent blind spots.
+
+### Assumptions
+- Minute-level countdown precision is sufficient for operational use.
+- Existing dashboard refresh cadence is acceptable for countdown updates.
+
+### Risks and Tradeoffs
+- Risk: extra panel metadata can clutter the UI.
+- Mitigation: keep countdown text compact and show only when snoozes exist.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+Manual checks:
+- Confirmed snoozed summary appears with remaining-time labels and disappears after clearing snoozes.
+Result:
+- Frontend tests passed (`33/33`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+- Play-mode E2E targeted checks passed (`4 passed`, `29 skipped`)
+
+### Result
+Dashboard alerts now provide explicit snooze visibility and one-click recovery, reducing blind spots created by temporary suppression.
+
+### Confidence Rating
+9/10. Behavior is covered by dedicated tests and full validation runs; remaining limitation is render-driven rather than real-time countdown updates.
+
+### Known Gaps or Uncertainty
+- Countdown text updates on refresh/re-render rather than continuous interval ticking.
+
+### Next Steps
+- Add optional lightweight ticking (e.g., 60-second interval) if real-time countdown precision is needed.
+- Evaluate backend-backed shared snooze preferences for multi-operator usage.
+
+---

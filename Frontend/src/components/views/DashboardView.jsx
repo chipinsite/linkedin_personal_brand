@@ -19,6 +19,15 @@ function isDueNow(post) {
   return scheduledMs <= Date.now();
 }
 
+function formatSnoozeRemaining(ms) {
+  const safeMs = Math.max(0, Number(ms || 0));
+  const totalMinutes = Math.ceil(safeMs / 60_000);
+  if (totalMinutes >= 60) {
+    return `${Math.ceil(totalMinutes / 60)}h left`;
+  }
+  return `${totalMinutes}m left`;
+}
+
 export default function DashboardView() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -206,6 +215,13 @@ export default function DashboardView() {
       return !until || until <= now;
     });
   })();
+  const snoozedOperationalAlerts = (() => {
+    const now = Date.now();
+    return operationalAlerts
+      .map((alert) => ({ ...alert, snoozedUntil: Number(alertSnoozes[alert.id] || 0) }))
+      .filter((alert) => alert.snoozedUntil > now)
+      .sort((a, b) => a.snoozedUntil - b.snoozedUntil);
+  })();
 
   function alertStyle(tone) {
     if (tone === 'critical') {
@@ -222,6 +238,10 @@ export default function DashboardView() {
       ...prev,
       [alertId]: Date.now() + SNOOZE_MS,
     }));
+  }
+
+  function clearSnoozes() {
+    setAlertSnoozes({});
   }
 
   return (
@@ -254,8 +274,24 @@ export default function DashboardView() {
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '13px', color: C.text, fontWeight: 600 }}>Operational Alerts</span>
-          <span style={{ fontSize: '12px', color: C.textMuted }}>{visibleOperationalAlerts.length} active</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: C.textMuted }}>{visibleOperationalAlerts.length} active</span>
+            {snoozedOperationalAlerts.length > 0 ? (
+              <Button size="sm" variant="default" onClick={clearSnoozes}>Clear Snoozes</Button>
+            ) : null}
+          </div>
         </div>
+        {snoozedOperationalAlerts.length > 0 ? (
+          <div style={{ fontSize: '12px', color: C.textMuted }}>
+            <strong style={{ color: C.text }}>Snoozed alerts: {snoozedOperationalAlerts.length}</strong>
+            {' '}
+            {snoozedOperationalAlerts.map((alert) => (
+              <span key={alert.id} style={{ marginRight: '8px' }}>
+                {alert.id}: {formatSnoozeRemaining(alert.snoozedUntil - Date.now())}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {visibleOperationalAlerts.length === 0 ? (
           <div style={{ fontSize: '12px', color: C.textMuted }}>No active operational alerts.</div>
         ) : (

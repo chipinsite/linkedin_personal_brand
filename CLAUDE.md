@@ -1067,6 +1067,7 @@ All AI generated content must adhere to:
 | 2.7 | 2026-02-08 | Added dashboard operational alerts for kill switch, posting state, due posts, and escalations with test coverage |
 | 2.8 | 2026-02-08 | Added play-mode E2E runner for critical dashboard/settings flows with sandbox-safe execution mode |
 | 2.9 | 2026-02-08 | Added per-alert dashboard snooze controls with local persistence and expiry coverage |
+| 3.0 | 2026-02-08 | Added alert snooze countdown visibility and clear-snoozes controls with expanded tests |
 
 ---
 
@@ -2537,3 +2538,49 @@ Result:
 ### 45.4 Remaining Constraints
 
 - Snooze state is local to one browser profile and not shared across devices/operators.
+
+---
+
+## 46. v3.0 Alert Countdown and Clear Controls (2026-02-08)
+
+### 46.1 v3.0 Scope
+
+v3.0 improves snooze observability and recovery:
+
+- show how many alerts are snoozed and their remaining snooze time
+- provide one-click clearing of all alert snoozes
+
+### 46.2 v3.0 Implementation Added
+
+- Updated dashboard alerts:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - added compact snoozed-alert summary row with per-alert remaining time
+  - added `Clear Snoozes` control when snoozed alerts exist
+  - added helper formatting for minute/hour countdown display
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added countdown summary visibility test
+  - added clear-snoozes behavior and storage reset test
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v3.0`
+
+### 46.3 v3.0 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+
+Result:
+
+- frontend tests passed (`33/33`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+- play-mode E2E targeted checks passed (`4 passed`, `29 skipped`)
+
+### 46.4 Remaining Constraints
+
+- Countdown display updates on render/refresh rather than real-time ticking.

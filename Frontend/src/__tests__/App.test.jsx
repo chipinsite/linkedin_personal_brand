@@ -318,6 +318,34 @@ describe('App', () => {
     nowSpy.mockRestore();
   });
 
+  it('shows snoozed countdown summary and clears snoozes', async () => {
+    const baseNow = 1_700_000_000_000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(baseNow);
+    localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify({ 'kill-switch': baseNow + 30 * 60 * 1000 }));
+
+    setupMockApi({
+      adminConfig: { kill_switch: true, posting_enabled: true },
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
+    expect(screen.getByText('Snoozed alerts: 1')).toBeInTheDocument();
+    expect(screen.getByText(/kill-switch: 30m left/)).toBeInTheDocument();
+    expect(screen.getByText('0 active')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Snoozes' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 active')).toBeInTheDocument();
+      expect(screen.getByText(/Kill switch is ON/)).toBeInTheDocument();
+      expect(screen.queryByText(/Snoozed alerts: 1/)).not.toBeInTheDocument();
+    });
+
+    const snoozes = JSON.parse(localStorage.getItem(ALERT_SNOOZE_KEY) || '{}');
+    expect(Object.keys(snoozes)).toHaveLength(0);
+    nowSpy.mockRestore();
+  });
+
   it('calls generate draft endpoint when Generate is clicked', async () => {
     const { calls } = setupMockApi();
     render(<App />);
