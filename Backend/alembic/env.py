@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.db import Base
+from app.db_url import backend_local_db_url, normalize_sqlite_url
 from app import models  # noqa: F401
 
 config = context.config
@@ -23,9 +24,8 @@ if config.config_file_name is not None:
 def get_url():
     database_url = os.getenv("DATABASE_URL")
     if database_url:
-        return database_url
-    fallback_path = PROJECT_ROOT / "local_dev.db"
-    return f"sqlite+pysqlite:///{fallback_path}"
+        return normalize_sqlite_url(database_url)
+    return backend_local_db_url()
 
 
 def run_migrations_offline() -> None:
@@ -62,8 +62,7 @@ def run_migrations_online() -> None:
         if not is_local_dev or database_url.startswith("sqlite"):
             raise
 
-    fallback_path = PROJECT_ROOT / "local_dev.db"
-    configuration["sqlalchemy.url"] = f"sqlite+pysqlite:///{fallback_path}"
+    configuration["sqlalchemy.url"] = backend_local_db_url()
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

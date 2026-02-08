@@ -55,6 +55,108 @@ Rate confidence in this build from 1 to 10 and explain why.
 <List next steps>
 
 ---
+## [2026-02-08 21:20 SAST] Build: v4.4 Deterministic SQLite Path Resolution
+
+### Build Phase
+Post Build
+
+### Goal
+Eliminate local SQLite path drift that causes "no such table" errors by making runtime and migration DB URL resolution deterministic.
+
+### Context
+User reports that after timezone hotfix, backend now returns `OperationalError: no such table` on multiple endpoints. This indicates runtime DB file differs from the migrated DB file due relative SQLite path resolution.
+
+### Scope
+In scope:
+- Normalize relative SQLite URLs to Backend-root absolute paths in runtime DB engine setup
+- Normalize relative SQLite URLs in Alembic URL resolution
+- Add regression test for SQLite URL normalization behavior
+- Update release/build documentation
+Out of scope:
+- PostgreSQL deployment configuration changes
+- Schema redesign
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added shared SQLite URL normalization utilities:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db_url.py`
+- `normalize_sqlite_url` converts `sqlite+pysqlite:///./...` and `sqlite:///./...` to backend-root absolute URLs
+- `backend_local_db_url` provides canonical local DB URL
+- Updated runtime engine initialization to normalize SQLite URLs:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+- primary configured URL is normalized before engine creation
+- local dev fallback now uses canonical backend-root absolute SQLite URL
+- Updated settings default DB URL to canonical helper:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+- Updated Alembic URL resolution to match runtime behavior:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+- configured URL now normalized
+- fallback uses canonical backend-root absolute SQLite URL
+- Added regression tests:
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v11_sqlite_url_resolution.py`
+- verifies normalization and no-op behavior for absolute SQLite URLs
+- Updated release/docs markers:
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.4`
+- `/Users/sphiwemawhayi/Personal Brand/README.md` updated version and DB path note
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` added v4.4 section
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db_url.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+- `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v11_sqlite_url_resolution.py`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+The same relative URL can point to different files depending on process working directory. Resolving relative SQLite paths against project root removes nondeterminism and prevents schema mismatch errors.
+
+### Assumptions
+- Local runs primarily use SQLite in single-user mode.
+- Relative SQLite URLs (`sqlite+pysqlite:///./...`) are currently used in `.env` and defaults.
+
+### Risks and Tradeoffs
+- Risk: changing URL normalization may affect edge-case custom SQLite URLs.
+- Mitigation: apply normalization only to explicit `./`-prefixed SQLite file URLs.
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m unittest -v tests/test_v11_sqlite_url_resolution.py tests/test_v04_monitoring_and_polling.py`
+- `./scripts/v1_smoke.sh`
+- `cd Backend && ./.venv/bin/python - <<'PY' ... print(settings.database_url), print(engine.url) ... PY`
+- `cd Backend && ./.venv/bin/alembic upgrade head`
+- `cd Backend && ./.venv/bin/python - <<'PY' ... TestClient GET /health,/posts,/comments,/engagement/status ... PY`
+Manual checks:
+- Confirmed runtime engine URL resolves to `/Users/sphiwemawhayi/Personal Brand/Backend/local_dev.db` while `.env` still uses relative SQLite URL.
+Result:
+- URL normalization tests passed (`2/2`)
+- v0.4 monitoring tests passed (`4/4`)
+- backend suite passed (`22/22`)
+- frontend suite passed (`35/35`)
+- frontend production build passed
+- unified smoke run passed
+- migrations and runtime both target same canonical SQLite file
+- key endpoints return `200` after migration (`/health`, `/posts`, `/comments`, `/engagement/status`)
+
+### Result
+Local SQLite mode is deterministic: schema migrations and API runtime now resolve to the same DB file, removing the "no such table" drift failure.
+
+### Confidence Rating
+9/10. The failure pattern was directly reproduced and fixed with shared URL normalization plus regression coverage; remaining risk is limited to custom DB URL formats outside explicit `./` SQLite paths.
+
+### Known Gaps or Uncertainty
+- Existing stale SQLite files in other directories are not auto-cleaned.
+
+### Next Steps
+1. Commit and push `v4.4`.
+2. User should pull, run migrations once, and restart backend.
+
+---
 ## [2026-02-08 21:10 SAST] Build: v4.3 Engagement Status Timezone Hotfix
 
 ### Build Phase

@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .db_url import backend_local_db_url
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
@@ -10,7 +12,7 @@ class Settings(BaseSettings):
     app_read_api_key: str | None = None
     app_write_api_key: str | None = None
     auth_enforce_read: bool = False
-    database_url: str = "sqlite+pysqlite:///./local_dev.db"
+    database_url: str = backend_local_db_url()
     redis_url: str = "redis://localhost:6379/0"
     timezone: str = "Africa/Johannesburg"
     posting_window_start: str = "08:00"

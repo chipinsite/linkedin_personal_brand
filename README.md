@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v4.3` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v4.4` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 - Single-user operational mode is complete and release-ready.
 
 ## Run locally
@@ -24,6 +24,7 @@ cp .env.example .env
 
 `DATABASE_URL` now defaults to local SQLite in `.env.example`, so first-run setup works without PostgreSQL.
 If you want PostgreSQL instead, override `DATABASE_URL` in `/Users/sphiwemawhayi/Personal Brand/Backend/.env`.
+Relative SQLite paths are normalized to the backend project root, so migrations and runtime always target the same local DB file.
 
 ### 2. Frontend setup
 

@@ -2839,3 +2839,62 @@ Result:
 ### 51.4 Remaining Constraints
 
 - Existing data written with mixed timezone representations in other routes may still warrant a broader normalization sweep if similar comparisons are added elsewhere.
+
+---
+
+## 52. v4.4 Deterministic SQLite Path Resolution (2026-02-08)
+
+### 52.1 v4.4 Scope
+
+v4.4 removes local SQLite path ambiguity that caused migrated schema and runtime queries to target different DB files:
+
+- deterministic normalization of relative SQLite URLs to backend-root absolute paths
+- shared normalization behavior between runtime engine initialization and Alembic migration URL resolution
+
+### 52.2 v4.4 Implementation Added
+
+- Added DB URL normalization utility:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/db_url.py`
+  - normalizes `sqlite+pysqlite:///./...` and `sqlite:///./...` to backend-root absolute file URLs
+  - provides canonical local DB URL helper for fallback paths
+- Runtime engine URL normalization:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/db.py`
+  - normalizes configured SQLite URLs before engine creation
+  - local fallback now uses canonical backend-root absolute SQLite URL
+- Settings default alignment:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+  - default `database_url` sourced from canonical local DB URL helper
+- Alembic URL normalization:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/env.py`
+  - applies same normalization for configured URLs and fallback target
+- Regression coverage:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v11_sqlite_url_resolution.py`
+  - validates relative SQLite URL normalization and no-op behavior for already-absolute URLs
+- Version/docs updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` set to `v4.4`
+  - `/Users/sphiwemawhayi/Personal Brand/README.md` updated version and local DB note
+
+### 52.3 v4.4 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Backend && ./.venv/bin/python -m unittest -v tests/test_v11_sqlite_url_resolution.py tests/test_v04_monitoring_and_polling.py`
+- `./scripts/v1_smoke.sh`
+- `cd Backend && ./.venv/bin/python - <<'PY' ... print(engine.url) ... PY`
+- `cd Backend && ./.venv/bin/alembic upgrade head`
+- `cd Backend && ./.venv/bin/python - <<'PY' ... TestClient GET /health,/posts,/comments,/engagement/status ... PY`
+
+Result:
+
+- sqlite URL normalization regression tests passed
+- v0.4 monitoring tests passed
+- backend tests passed (`22/22`)
+- frontend tests passed (`35/35`)
+- frontend production build passed
+- unified smoke run passed
+- runtime and alembic confirmed to use `/Users/sphiwemawhayi/Personal Brand/Backend/local_dev.db`
+- key endpoints return `200` after migration (`/health`, `/posts`, `/comments`, `/engagement/status`)
+
+### 52.4 Remaining Constraints
+
+- Existing local SQLite files created in other directories are not auto-migrated or merged; run migrations against the canonical backend DB path after pulling this change.

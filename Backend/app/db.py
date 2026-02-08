@@ -3,6 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from .config import settings
+from .db_url import backend_local_db_url, normalize_sqlite_url
 
 
 class Base(DeclarativeBase):
@@ -17,7 +18,7 @@ def _engine_kwargs(database_url: str) -> dict:
 
 
 def _create_engine_with_local_fallback():
-    primary_url = settings.database_url
+    primary_url = normalize_sqlite_url(settings.database_url)
     primary_engine = create_engine(primary_url, **_engine_kwargs(primary_url))
     is_local_dev = settings.app_env.lower() == "dev"
     if is_local_dev and not primary_url.startswith("sqlite"):
@@ -25,7 +26,7 @@ def _create_engine_with_local_fallback():
             with primary_engine.connect():
                 pass
         except SQLAlchemyError:
-            fallback_url = "sqlite+pysqlite:///./local_dev.db"
+            fallback_url = backend_local_db_url()
             return create_engine(fallback_url, **_engine_kwargs(fallback_url))
     return primary_engine
 
