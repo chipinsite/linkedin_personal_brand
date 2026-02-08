@@ -1574,3 +1574,77 @@ Frontend now provides one-click demo seeding, making the app immediately explora
 ### Next Steps
 - Continue reducing external-integration feature gaps not yet implemented in backend.
 - Run live play mode end-to-end and verify checklist outcomes in browser.
+
+---
+
+## [2026-02-08 17:22 SAST] Build: v1.9 Live API Walkthrough Script
+
+### Build Phase
+Post Build
+
+### Goal
+Add a simple live runtime verification script for backend workflows during play mode.
+
+### Context
+After v1.8, frontend is highly interactive; adding live API walkthrough improves confidence that backend runtime state behaves as expected.
+
+### Scope
+In scope:
+- Add a script that checks health and exercises key read/write API endpoints
+- Keep script non-destructive and idempotent where possible
+- Update docs and build logs
+Out of scope:
+- Replacing test suite with integration testing framework
+- External service integration validation
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added `/Users/sphiwemawhayi/Personal Brand/scripts/live_api_walkthrough.sh` for local runtime endpoint walkthroughs.
+- Script supports:
+- read-only checks by default
+- optional mutating checks (`RUN_MUTATING=1`)
+- optional API key auth (`API_KEY`)
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` with walkthrough usage examples.
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` with v1.9 version row and section 36.
+- Re-ran unified smoke validation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/live_api_walkthrough.sh`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A quick live script bridges the gap between unit tests and manual UI clicking by validating that the backend process is healthy and responding across core routes.
+
+### Assumptions
+- Backend is running locally when the walkthrough script is executed.
+
+### Risks and Tradeoffs
+- Risk: script may fail when auth is enforced and API key is missing.
+- Mitigation: support optional `API_KEY` env variable and clear error output.
+
+### Tests and Validation
+Commands run:
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Reviewed script behavior and environment variable options for auth/mutating mode
+Result:
+- Backend tests passed (`18/18`)
+- Frontend tests passed (`18/18`)
+- Frontend production build passed
+
+### Result
+Repository now includes a lightweight live API walkthrough utility to validate runtime backend behavior during play sessions.
+
+### Confidence Rating
+9/10. Script is simple and deterministic with clear usage flags; runtime behavior still depends on local backend process state.
+
+### Known Gaps or Uncertainty
+- Walkthrough script validates responsiveness and basic flows but is not a full integration harness with assertions.
+
+### Next Steps
+- Add optional richer live checks once background worker/bot processes are part of default play mode.
+- Continue incremental closure of external-integration-driven feature gaps.

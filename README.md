@@ -68,6 +68,29 @@ cd /Users/sphiwemawhayi/Personal\ Brand
 ./scripts/run_frontend.sh
 ```
 
+### Live API walkthrough
+
+With backend running, validate core API behavior:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+./scripts/live_api_walkthrough.sh
+```
+
+Optional mutating walkthrough:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+RUN_MUTATING=1 ./scripts/live_api_walkthrough.sh
+```
+
+If API key auth is enabled:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+API_KEY=your_key_here ./scripts/live_api_walkthrough.sh
+```
+
 ### Play checklist
 
 At `http://127.0.0.1:5173`:

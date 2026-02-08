@@ -1057,6 +1057,7 @@ All AI generated content must adhere to:
 | 1.6 | 2026-02-08 | Completed frontend core control action test coverage for publish-due, poll, recompute, and admin kill/posting toggles |
 | 1.7 | 2026-02-08 | Added local play-mode startup scripts and frontend interaction checklist for hands-on testing |
 | 1.8 | 2026-02-08 | Added one-click frontend demo bootstrap workflow for seeded end-to-end interaction flow and expanded tests |
+| 1.9 | 2026-02-08 | Added live API walkthrough script for local runtime verification across core backend endpoints |
 
 ---
 
@@ -2064,3 +2065,37 @@ Result:
 ### 35.4 Remaining Constraints
 
 - Some spec-level capabilities remain dependent on backend/external integrations not yet implemented end-to-end (e.g., full WhatsApp/email channels and official LinkedIn write API mode).
+
+---
+
+## 36. v1.9 Live API Walkthrough Utility (2026-02-08)
+
+### 36.1 v1.9 Scope
+
+v1.9 adds a lightweight local runtime verification script to complement unit tests and frontend interaction checks.
+
+### 36.2 v1.9 Implementation Added
+
+- Added:
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/live_api_walkthrough.sh`
+- Script capabilities:
+  - checks core read endpoints (`/health`, `/health/readiness`, `/admin/config`, `/drafts`, `/posts`, `/engagement/status`, `/reports/daily`)
+  - supports optional mutating checks via `RUN_MUTATING=1`
+  - supports optional API key auth via `API_KEY` env variable
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` with usage examples.
+
+### 36.3 v1.9 Validation Status
+
+Executed on 2026-02-08:
+
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`18/18`)
+- frontend tests passed (`18/18`)
+- frontend production build passed
+
+### 36.4 Remaining Constraints
+
+- Walkthrough script validates API responsiveness and basic flow execution but does not replace full integration/E2E orchestration.
