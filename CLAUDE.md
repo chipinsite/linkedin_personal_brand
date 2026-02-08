@@ -1056,6 +1056,7 @@ All AI generated content must adhere to:
 | 1.5 | 2026-02-08 | Added interactive frontend workflows for manual draft creation, post metrics updates, and comment creation with expanded action tests |
 | 1.6 | 2026-02-08 | Completed frontend core control action test coverage for publish-due, poll, recompute, and admin kill/posting toggles |
 | 1.7 | 2026-02-08 | Added local play-mode startup scripts and frontend interaction checklist for hands-on testing |
+| 1.8 | 2026-02-08 | Added one-click frontend demo bootstrap workflow for seeded end-to-end interaction flow and expanded tests |
 
 ---
 
@@ -2019,3 +2020,47 @@ Result:
 ### 34.4 Remaining Constraints
 
 - Full spec parity still depends on backend/external-integration capabilities not yet implemented end-to-end (e.g., full WhatsApp/email operational channels and official LinkedIn write API mode).
+
+---
+
+## 35. v1.8 Demo Bootstrap Interaction Flow (2026-02-08)
+
+### 35.1 v1.8 Scope
+
+v1.8 introduces one-click demo bootstrap inside the frontend so users can populate and explore the product quickly.
+
+### 35.2 v1.8 Implementation Added
+
+- Frontend workflow enhancement:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+  - added `bootstrapDemoData()` and `Playground` panel action `Bootstrap demo`
+- Bootstrap sequence composes existing APIs:
+  1. create manual draft
+  2. approve draft
+  3. confirm publish
+  4. update metrics
+  5. create comment
+  6. ingest sources
+  7. send daily report
+- Frontend test expansion:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added bootstrap workflow test and mock behavior support
+  - suite expanded to `18` tests
+
+### 35.3 v1.8 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`18/18`)
+- frontend production build passed
+- unified smoke run passed (backend tests + frontend tests + frontend build)
+
+### 35.4 Remaining Constraints
+
+- Some spec-level capabilities remain dependent on backend/external integrations not yet implemented end-to-end (e.g., full WhatsApp/email channels and official LinkedIn write API mode).

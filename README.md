@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v1.6` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v1.8` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -72,6 +72,7 @@ cd /Users/sphiwemawhayi/Personal\ Brand
 
 At `http://127.0.0.1:5173`:
 
+- click `Bootstrap demo` in the `Playground` panel for one-click seeded workflow data
 - click `Generate`, then `Approve`/`Reject` on pending drafts
 - click `Create Draft` to add a manual draft
 - click `Run Due` and `Confirm publish` in Publishing

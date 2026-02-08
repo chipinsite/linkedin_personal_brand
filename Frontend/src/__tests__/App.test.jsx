@@ -104,6 +104,18 @@ function setupMockApi(overrides = {}) {
       state.drafts = state.drafts.map((draft) =>
         draft.id === draftId ? { ...draft, status: 'APPROVED' } : draft,
       );
+      const hasPost = state.posts.some((post) => post.draft_id === draftId);
+      if (!hasPost) {
+        state.posts = [
+          {
+            id: `post-${state.posts.length + 1}`,
+            draft_id: draftId,
+            scheduled_time: '2026-02-08T08:00:00Z',
+            published_at: null,
+          },
+          ...state.posts,
+        ];
+      }
       return mockJson(state.drafts.find((draft) => draft.id === draftId) || state.baseDraft);
     }
     if (method === 'GET' && path === '/posts') return mockJson(state.posts);
@@ -483,6 +495,26 @@ describe('App', () => {
     await waitFor(() => {
       expect(calls.some((call) => call.method === 'POST' && call.path === '/admin/posting/off')).toBe(true);
       expect(screen.getByText('Posting disabled')).toBeInTheDocument();
+    });
+  });
+
+  it('runs bootstrap demo flow and calls key workflow endpoints', async () => {
+    const { calls } = setupMockApi();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bootstrap demo' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/drafts')).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path.includes('/approve'))).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path.includes('/confirm-manual-publish'))).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path.includes('/metrics'))).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/comments')).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/sources/ingest')).toBe(true);
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/reports/daily/send')).toBe(true);
+      expect(screen.getByText('Demo bootstrap complete')).toBeInTheDocument();
     });
   });
 });

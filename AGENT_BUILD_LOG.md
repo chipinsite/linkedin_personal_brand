@@ -1499,3 +1499,78 @@ Project now includes an explicit local play mode and startup scripts, making fro
 ### Next Steps
 - Continue closing remaining spec-level gaps that depend on backend/external integrations.
 - Run live play mode session and verify the interaction checklist in-browser.
+
+---
+
+## [2026-02-08 17:19 SAST] Build: v1.8 Demo Bootstrap Workflow
+
+### Build Phase
+Post Build
+
+### Goal
+Make the frontend immediately usable by adding a one-click demo bootstrap that seeds realistic workflow data.
+
+### Context
+User asked to keep building autonomously toward a playable frontend experience.
+
+### Scope
+In scope:
+- Add frontend "Bootstrap demo" action
+- Sequence existing API calls to create/approve/publish/measure/comment in one flow
+- Add automated test coverage for bootstrap trigger behavior
+- Update docs/logs/version notes
+Out of scope:
+- New backend endpoints or schema changes
+- External integration implementation
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added one-click bootstrap workflow in `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` via `Playground` panel and `Bootstrap demo` action.
+- Implemented sequential bootstrap flow using existing endpoints for draft creation, approval, publish confirm, metrics update, comment creation, source ingest, and report send.
+- Extended `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx` with bootstrap workflow assertions and mock state support.
+- Expanded frontend test suite from 17 to 18 passing tests.
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v1.8.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+A seeded demo path reduces friction and lets users explore most workflows quickly without manual, multi-step setup.
+
+### Assumptions
+- Existing backend workflow endpoints are stable and can be composed safely in sequence.
+
+### Risks and Tradeoffs
+- Risk: bootstrap sequence can partially succeed if one API call fails mid-flow.
+- Mitigation: surface explicit error message and keep idempotent re-run path.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified bootstrap flow entry point appears in `Playground` panel and uses existing workflow controls
+Result:
+- Frontend tests passed (`18` tests)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Frontend now provides one-click demo seeding, making the app immediately explorable without manually executing each setup action.
+
+### Confidence Rating
+9/10. Bootstrap behavior is validated in automated tests and smoke runs; residual uncertainty is environment-specific runtime configuration (e.g., posting-enabled state).
+
+### Known Gaps or Uncertainty
+- Bootstrap success depends on backend runtime config allowing posting workflows; when blocked, errors are surfaced through existing UI messaging.
+
+### Next Steps
+- Continue reducing external-integration feature gaps not yet implemented in backend.
+- Run live play mode end-to-end and verify checklist outcomes in browser.

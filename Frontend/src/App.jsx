@@ -123,6 +123,32 @@ export default function App() {
     withAction('Data refreshed', refreshAll);
   }, []);
 
+  async function bootstrapDemoData() {
+    const demoDraft = await api.createDraft({
+      ...DRAFT_DEFAULTS,
+      content_body: `${DRAFT_DEFAULTS.content_body} [demo ${Date.now()}]`,
+      image_url: null,
+      carousel_document_url: null,
+    });
+    await api.approveDraft(demoDraft.id);
+
+    const refreshedPosts = await api.posts();
+    const targetPost = refreshedPosts.find((post) => post.draft_id === demoDraft.id) || refreshedPosts[0];
+    if (!targetPost) {
+      throw new Error('No published post record created after draft approval');
+    }
+
+    await api.confirmPublish(targetPost.id, `${publishUrl}${Date.now()}`);
+    await api.updateMetrics(targetPost.id, METRIC_DEFAULTS);
+    await api.createComment({
+      ...commentInput,
+      published_post_id: targetPost.id,
+      commenter_profile_url: commentInput.commenter_profile_url || null,
+    });
+    await api.ingestSources(feedInput.split(',').map((s) => s.trim()).filter(Boolean));
+    await api.sendDailyReport();
+  }
+
   const pendingDrafts = useMemo(() => drafts.filter((d) => d.status === 'PENDING'), [drafts]);
 
   return (
@@ -144,6 +170,20 @@ export default function App() {
       {error ? <div className="banner error">{error}</div> : null}
 
       <main className="grid">
+        <Panel
+          title="Playground"
+          action={
+            <button disabled={loading} onClick={() => withAction('Demo bootstrap complete', bootstrapDemoData)}>
+              Bootstrap demo
+            </button>
+          }
+        >
+          <p>One click flow to create draft, approve, confirm publish, update metrics, add comment, ingest sources, and send report.</p>
+          <div className="row-actions">
+            <button disabled={loading} onClick={() => withAction('Data refreshed', refreshAll)}>Refresh now</button>
+          </div>
+        </Panel>
+
         <Panel
           title="Drafts"
           action={<button disabled={loading} onClick={() => withAction('Draft generated', () => api.generateDraft())}>Generate</button>}
