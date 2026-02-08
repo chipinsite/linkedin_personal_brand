@@ -2097,3 +2097,88 @@ Operators now return to their last-used view and publish queue filter automatica
 - Add optional reset-preferences control in Settings for quick state recovery.
 
 ---
+
+## [2026-02-08 19:22 SAST] Build: v2.4 Reset UI Preferences Control
+
+### Build Phase
+Post Build
+
+### Goal
+Add a fast operator recovery path to reset persisted UI preferences from Settings.
+
+### Context
+v2.3 introduced persisted local preferences; operators now need a one-click reset when a saved state becomes inconvenient.
+
+### Scope
+In scope:
+- Add a Settings action to clear persisted UI preference keys
+- Reset active view and dashboard queue filter to defaults after reset
+- Add tests for reset action behavior
+- Update docs/version/build log entries
+Out of scope:
+- Backend changes
+- User account-level preference syncing
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`:
+- added `handleResetUiPreferences()` to clear persisted keys and reset the app to dashboard view
+- wired reset callback into `SettingsView`
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`:
+- added `Reset UI Preferences` action in `System Controls`
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- updated app marker to `v2.4`
+- Expanded `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added reset-preferences test verifying:
+- return to dashboard
+- queue filter default reset
+- localStorage keys normalized to defaults
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v2.4.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Persisted state improves speed, but without reset controls it can create friction. A direct in-app reset improves recoverability and operator confidence.
+
+### Assumptions
+- Preference keys are limited to `app.activeView` and `app.dashboard.publishFilter`.
+
+### Risks and Tradeoffs
+- Risk: reset clears useful user context unexpectedly.
+- Mitigation: action is explicit and user-initiated from Settings.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Verified reset action is accessible under `Settings` and returns UI to default dashboard state.
+Result:
+- Frontend tests passed (`26/26`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+
+### Result
+Operators can now recover quickly from undesired persisted UI states via an in-app reset control.
+
+### Confidence Rating
+9/10. Feature is covered by dedicated behavior test and full smoke validation; residual risk is limited to storage-disabled browser environments.
+
+### Known Gaps or Uncertainty
+- Reset targets UI preference keys only and does not reset any backend data.
+
+### Next Steps
+- Add a lightweight browser E2E runner for critical play-mode workflows.
+- Continue closing remaining non-UI integration gaps toward full operational parity.
+
+---

@@ -1061,6 +1061,7 @@ All AI generated content must adhere to:
 | 2.0 | 2026-02-08 | Added frontend manual publish assistant checks and escalations panel aligned to linkedinAlgos guidance |
 | 2.1 | 2026-02-08 | Added publishing queue filters and queue-state summaries in frontend with expanded tests |
 | 2.3 | 2026-02-08 | Added persisted operator UI preferences (active view and queue filter) with reload-state tests |
+| 2.4 | 2026-02-08 | Added Settings control to reset persisted UI preferences with coverage for reset behavior |
 
 ---
 
@@ -2246,3 +2247,50 @@ Result:
 ### 39.4 Remaining Constraints
 
 - Preferences are browser-local only and do not sync across devices/sessions.
+
+---
+
+## 40. v2.4 Preferences Reset Recovery Control (2026-02-08)
+
+### 40.1 v2.4 Scope
+
+v2.4 adds a direct recovery action for persisted UI state:
+
+- reset persisted active view
+- reset persisted publish queue filter
+
+### 40.2 v2.4 Implementation Added
+
+- Updated app shell:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx`
+  - added `handleResetUiPreferences()` to clear:
+    - `app.activeView`
+    - `app.dashboard.publishFilter`
+  - reset action routes UI back to `dashboard`
+- Updated settings view:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx`
+  - added `Reset UI Preferences` control in `System Controls`
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version label set to `v2.4`
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added reset-preferences behavior test (storage keys + default view/filter)
+
+### 40.3 v2.4 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- frontend tests passed (`26/26`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 40.4 Remaining Constraints
+
+- Reset applies only to browser-local UI preferences and does not affect backend runtime state.

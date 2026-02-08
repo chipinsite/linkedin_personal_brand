@@ -24,11 +24,21 @@ export default function App() {
     }
   }, [activeView]);
 
+  function handleResetUiPreferences() {
+    try {
+      localStorage.removeItem('app.activeView');
+      localStorage.removeItem('app.dashboard.publishFilter');
+    } catch {
+      // ignore storage write failures in constrained environments
+    }
+    setActiveView('dashboard');
+  }
+
   const views = {
     dashboard: <DashboardView />,
     content: <ContentView />,
     engagement: <EngagementView />,
-    settings: <SettingsView onConfigChange={setConfig} />,
+    settings: <SettingsView onConfigChange={setConfig} onResetUiPreferences={handleResetUiPreferences} />,
   };
 
   return (

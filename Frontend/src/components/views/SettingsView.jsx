@@ -14,7 +14,7 @@ function parseWeightJSON(raw, fallback) {
   }
 }
 
-export default function SettingsView({ onConfigChange }) {
+export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -70,6 +70,17 @@ export default function SettingsView({ onConfigChange }) {
           <Button disabled={loading} onClick={() => withAction('Posting enabled', () => api.postingOn())}>Posting ON</Button>
           <Button disabled={loading} onClick={() => withAction('Posting disabled', () => api.postingOff())}>Posting OFF</Button>
           <Button disabled={loading} onClick={() => withAction('Learning recomputed', () => api.recomputeLearning())}>Recompute</Button>
+          <Button
+            disabled={loading}
+            variant="danger"
+            onClick={() => {
+              if (onResetUiPreferences) {
+                onResetUiPreferences();
+              }
+            }}
+          >
+            Reset UI Preferences
+          </Button>
         </div>
         <div style={{ marginTop: '12px', fontSize: '12px', color: C.textMuted }}>
           {config ? `Timezone: ${config.timezone} · Posting: ${String(config.posting_enabled)} · Kill switch: ${String(config.kill_switch)}` : 'Loading config...'}
