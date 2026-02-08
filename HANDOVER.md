@@ -1,140 +1,116 @@
 # Handover Document
 
-**Prepared:** 2026-02-08 21:28 SAST  
-**Repository:** `/Users/sphiwemawhayi/Personal Brand`  
-**Branch:** `main`  
-**Latest pushed commit:** `1fe536b`
+**Prepared:** 2026-02-09 02:45 SAST
+**Repository:** `/Users/sphiwemawhayi/Personal Brand`
+**Branch:** `main`
+**Latest commit:** `a8c2bae`
 
 ## 1. Executive Summary
-The single-user LinkedIn personal brand tool is operational and validated through `v4.4`.
+The single-user LinkedIn personal brand tool is validated through `v4.8`.
 
 Current state:
-- Backend API is functional in local SQLite mode.
-- Frontend operations console is functional and integrated.
+- Backend API: 45 tests passing, structured logging, request tracing, aggregated health check.
+- Frontend console: 51 tests passing, accessible UI with ARIA landmarks and focus indicators.
 - End-to-end smoke path (`backend tests + frontend tests + frontend build`) passes.
 
-Recent blockers fixed today:
-- Runtime Postgres dependency failures on local machines.
-- CORS/preflight failures from frontend browser requests.
-- `/engagement/status` timezone comparison crash.
-- SQLite path drift causing migrations to target one DB file and runtime queries another.
+Builds completed this session:
+- `v4.5` Startup self-check and DB diagnostic endpoint
+- `v4.6` Frontend component decomposition and UX resilience
+- `v4.7` Structured JSON logging, request ID tracing, deploy profiles
+- `v4.8` Accessibility: skip-to-content, ARIA roles, focus indicators
 
 ## 2. What Was Completed
-### 2.1 Core milestone
-- `v4.0` released as single-user operational baseline.
-- Backup/export endpoint and UI backup download flow implemented.
 
-### 2.2 Stability hardening delivered after v4.0
-- `v4.1` local startup hardening.
-- `v4.2` runtime DB fallback to SQLite in dev when Postgres is unavailable.
-- `v4.3` timezone hotfix for `/engagement/status`.
-- `v4.4` deterministic SQLite URL normalization for both Alembic and runtime.
+### 2.1 v4.5 — Startup Self-Check
+- `check_schema()` validates 9 required tables on app init
+- `GET /health/db` diagnostic endpoint with redacted DB URL, migration head, and table map
+- 9 regression tests for healthy/empty/partial DB scenarios
 
-### 2.3 Latest commits (newest first)
-- `1fe536b` `fix(sqlite): normalize relative db paths for runtime and migrations`
-- `4a0f750` `fix(engagement): handle sqlite naive datetimes in monitoring status`
-- `8dcffd1` `fix(runtime): fallback to sqlite for local dev when postgres is unavailable`
-- `54b6f20` `fix(startup): harden local migrations and browser api access`
-- `3e2dcab` `feat(release): complete single-user operational tool v4.0`
+### 2.2 v4.6 — Frontend Component Decomposition
+- Extracted shared components: `LoadingSpinner`, `ErrorMessage`, `EmptyState`, `OperationalAlerts`
+- All four views (Dashboard, Content, Engagement, Settings) now have consistent loading/error/empty state handling
+- 9 new frontend tests for loading spinners, error states, and empty states
 
-## 3. Current Functional Coverage
-The app currently supports:
-- Draft generation, manual draft creation, approval/rejection.
-- Manual publish confirmation flow and post metrics updates.
-- Comment ingestion, engagement polling controls, escalation visibility.
-- Source ingestion and learning/recompute/report controls.
-- Ops controls (kill switch, posting toggle), readiness and health checks.
-- Settings/Audit/Alignment visibility.
-- Local backup export from UI (`Settings -> Export Backup`).
+### 2.3 v4.7 — Operational Maturity
+- `JSONFormatter` for structured machine-parseable logging (auto-enabled for `app_env=prod`)
+- `RequestIdMiddleware` generates/propagates `X-Request-ID` headers via contextvars
+- `GET /health/full` aggregates heartbeat, DB, Redis, schema, and migration checks
+- Config additions: `log_level`, `log_json`
+- 14 new backend tests
+
+### 2.4 v4.8 — Accessibility
+- Skip-to-content link (visible on keyboard focus)
+- `aria-label` on `<nav>` and `<main>`, `aria-current="page"` on active nav item
+- `role="alert"` on ErrorMessage and OperationalAlerts
+- `role="status"` + `aria-busy` on LoadingSpinner
+- `role="progressbar"` with `aria-value*` on ProgressBar
+- Visible focus ring on all buttons (sidebar and general)
+- 7 new accessibility tests
+
+### 2.5 Commits (newest first)
+- `a8c2bae` `feat(a11y): v4.8 accessibility landmarks, ARIA roles, and focus indicators`
+- `92c88fe` `feat(ops): v4.7 structured logging, tracing, and deploy profiles`
+- `40dc20a` `feat(frontend): v4.6 component decomposition and UX resilience`
+- `0493c35` `feat(stability): v4.5 startup self-check and DB diagnostic endpoint`
+
+## 3. Test Coverage Summary
+| Suite | Count | Status |
+|-------|-------|--------|
+| Backend (pytest) | 45 | All pass |
+| Frontend (vitest) | 51 | All pass |
+| Frontend build | 1 | Pass |
+| Unified smoke | 1 | Pass |
 
 ## 4. Known Outstanding Work
-No P0 blockers are open at handover time, but these remain:
 
-### 4.1 Validation and ops follow-through
-- Run unrestricted local `play_mode_e2e` full server-start branch outside sandbox regularly.
-- Add a small startup self-check to fail fast with a readable message when DB schema is missing.
+### 4.1 Medium-priority accessibility
+- Form label-to-input associations (htmlFor/id) across all views
+- Semantic list restructuring for comments/drafts/posts
+- Heading hierarchy rationalization (h1/h2/h3)
 
-### 4.2 Product/UX maturity
-- Break down large frontend view composition into smaller reusable modules.
-- Improve empty-state guidance and inline operational explanations.
-- Add stronger accessibility validation (keyboard/focus and a11y test coverage).
+### 4.2 Production-readiness
+- Auth key rotation endpoint
+- Secrets management for non-local environments
+- CI workflow update for Python 3.14 deprecation warnings
 
-### 4.3 Production-readiness gaps
-- Harden deployment profile separation (`dev` SQLite vs production Postgres).
-- Add stronger auth and secrets management posture for non-local environments.
-- Expand monitoring/alerting strategy for background jobs and integration failures.
-
-### 4.4 Strategic scope gaps (intentionally out of v4.x)
-- Multi-user/role-based operation.
-- Official LinkedIn write automation path (beyond manual publish baseline).
-- Broader channel automation (WhatsApp/Email) beyond current scope.
+### 4.3 Strategic scope gaps (intentionally out of v4.x)
+- Multi-user/role-based operation
+- Official LinkedIn write automation (beyond manual publish)
+- Broader channel automation (WhatsApp/Email)
 
 ## 5. First 30 Minutes for Next Agent
-1. Sync and verify repository state:
+1. Sync and verify:
 ```bash
 cd "/Users/sphiwemawhayi/Personal Brand"
 git pull
 git status
 ```
 
-2. Start backend using canonical local flow:
+2. Run full smoke:
 ```bash
-cd "/Users/sphiwemawhayi/Personal Brand/Backend"
-./.venv/bin/alembic upgrade head
-./.venv/bin/python - <<'PY'
-from app.db import engine
-print(engine.url)
-PY
-./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-Expected DB URL form:
-`sqlite+pysqlite:////Users/sphiwemawhayi/Personal Brand/Backend/local_dev.db`
-
-3. Run full smoke:
-```bash
-cd "/Users/sphiwemawhayi/Personal Brand"
 ./scripts/v1_smoke.sh
 ```
+Expected: 45 backend tests, 51 frontend tests, build passes.
 
-4. Bring up frontend:
+3. Start backend:
 ```bash
-cd "/Users/sphiwemawhayi/Personal Brand/Frontend"
+cd Backend
+./.venv/bin/alembic upgrade head
+./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+4. Start frontend:
+```bash
+cd Frontend
 npm install
 npm run dev
 ```
 
-## 6. If Issues Reappear
-### Symptom: `no such table ...`
-Cause: migrations and runtime are not pointing to same DB file.
-Actions:
-- confirm backend pulled `1fe536b` or later.
-- rerun `alembic upgrade head` from `/Users/sphiwemawhayi/Personal Brand/Backend`.
-- print `engine.url` as shown above.
-
-### Symptom: `/engagement/status` 500 with timezone comparison
-Cause: old code not pulled.
-Actions:
-- ensure commit `4a0f750` or later.
-- restart `uvicorn` after pull.
-
-## 7. Documentation + Process Rules
-- Build logging is mandatory via `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`.
-- Rules are codified in `/Users/sphiwemawhayi/Personal Brand/DOCUMENTATION_RULES.md`.
-- `CLAUDE.md` is the product/spec + version history source of truth.
-- `linkedinAlgos.md` remains mandatory alignment guidance for feature behavior/content constraints.
-
-## 8. Suggested Next Phase Plan
-### Phase 1 (Stabilization)
-- Add explicit DB schema bootstrap/diagnostic endpoint or startup check.
-- Add targeted regression tests for common local misconfiguration paths.
-
-### Phase 2 (Frontend hardening)
-- Componentize monolithic view slices.
-- Improve empty states, loading granularity, and UX resilience under partial API failures.
-
-### Phase 3 (Operational maturity)
-- Deploy profile split and production-safe config defaults.
-- Monitoring + structured logging + alerting baseline for long-running operation.
+## 6. Documentation + Process Rules
+- Build logging mandatory via `AGENT_BUILD_LOG.md`
+- Rules codified in `DOCUMENTATION_RULES.md`
+- `CLAUDE.md` is spec + version history source of truth
+- `linkedinAlgos.md` is mandatory alignment guidance for content/publishing behavior
 
 ---
 Handover complete.
