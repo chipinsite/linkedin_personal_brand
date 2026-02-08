@@ -2514,3 +2514,89 @@ Repository now includes a single-command play-mode E2E runner with a validated f
 - Expand runner coverage to include additional content/engagement critical paths after dashboard/settings baseline.
 
 ---
+## [2026-02-08 20:08 SAST] Build: v2.9 Alert Snooze Controls
+
+### Build Phase
+Post Build
+
+### Goal
+Reduce dashboard alert noise by allowing operators to temporarily snooze specific operational alerts.
+
+### Context
+v2.7 introduced operational alerts, but repetitive conditions can cause alert fatigue. A snooze control improves usability without hiding status permanently.
+
+### Scope
+In scope:
+- Add per-alert snooze action in Dashboard Operational Alerts panel
+- Persist snooze state in localStorage with expiration
+- Add frontend tests for snooze behavior and reappearance after expiry
+- Update version/docs/build log
+Out of scope:
+- Backend persistence for snoozes
+- Role-based snooze sharing across users/devices
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`:
+- added localStorage-backed alert snooze state (`app.dashboard.alertSnoozes`)
+- implemented per-alert `Snooze 2h` action with 2-hour expiry
+- filtered visible alert list and active count using current snooze validity
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx`:
+- forwarded passthrough props to support accessibility labels and control targeting
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`:
+- added alert snooze behavior test
+- added snooze expiry reappearance test
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v2.9`
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md` and `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md` for v2.9 documentation.
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+
+### Reasoning
+Snoozing is a low-complexity operator control that addresses immediate noise while preserving default safety signals.
+
+### Assumptions
+- Local browser persistence is sufficient for the current single-operator workflow.
+- A fixed 2-hour snooze window balances visibility with interruption reduction.
+
+### Risks and Tradeoffs
+- Risk: users may miss sustained issues during snooze period.
+- Mitigation: keep snooze temporary and explicit per alert.
+
+### Tests and Validation
+Commands run:
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+Manual checks:
+- Verified dashboard alert cards can be snoozed individually and clear-state text appears when all active alerts are snoozed.
+Result:
+- Frontend tests passed (`32/32`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+- Play-mode E2E targeted checks passed (`4 passed`, `28 skipped`)
+
+### Result
+Dashboard operational alerts now support temporary per-alert snooze control, reducing repeated noise while preserving automatic reactivation after expiry.
+
+### Confidence Rating
+9/10. Feature logic is deterministic, covered by dedicated tests, and validated through full smoke + play-mode checks; remaining risk is local-only persistence scope.
+
+### Known Gaps or Uncertainty
+- Snooze state persists only in local browser storage and does not sync across devices/users.
+
+### Next Steps
+- Add optional operator-visible snooze countdown timestamps for better awareness.
+- Consider backend-backed multi-operator snooze preferences if team usage expands.
+
+---

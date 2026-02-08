@@ -1,6 +1,6 @@
 import { C } from '../../constants/theme';
 
-export default function Button({ children, variant = 'default', size = 'md', onClick, style: extraStyle, disabled, type = 'button' }) {
+export default function Button({ children, variant = 'default', size = 'md', onClick, style: extraStyle, disabled, type = 'button', ...rest }) {
   const base = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -26,7 +26,7 @@ export default function Button({ children, variant = 'default', size = 'md', onC
   };
 
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...extraStyle }}>
+    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...extraStyle }} {...rest}>
       {children}
     </button>
   );

@@ -1066,6 +1066,7 @@ All AI generated content must adhere to:
 | 2.6 | 2026-02-08 | Added Settings audit filter controls and filtering test coverage |
 | 2.7 | 2026-02-08 | Added dashboard operational alerts for kill switch, posting state, due posts, and escalations with test coverage |
 | 2.8 | 2026-02-08 | Added play-mode E2E runner for critical dashboard/settings flows with sandbox-safe execution mode |
+| 2.9 | 2026-02-08 | Added per-alert dashboard snooze controls with local persistence and expiry coverage |
 
 ---
 
@@ -2486,3 +2487,53 @@ Result:
 ### 44.4 Remaining Constraints
 
 - Full server-start branch of the runner could not be executed in this sandbox because binding local ports is blocked (`operation not permitted`), but remains enabled for normal local runs.
+
+---
+
+## 45. v2.9 Alert Snooze Controls (2026-02-08)
+
+### 45.1 v2.9 Scope
+
+v2.9 adds temporary dashboard alert suppression controls:
+
+- snooze individual operational alerts for 2 hours
+- persist snooze state locally for operator continuity
+- automatically restore alerts after snooze expiry
+
+### 45.2 v2.9 Implementation Added
+
+- Updated dashboard alerts:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/DashboardView.jsx`
+  - added localStorage-backed alert snooze map (`app.dashboard.alertSnoozes`)
+  - added `Snooze 2h` action per alert
+  - active count and visible list now reflect only unsnoozed or expired alerts
+- Updated shared button component:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/ui/Button.jsx`
+  - forwards passthrough props (for accessibility labels and control hooks)
+- Expanded tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - added snooze action test
+  - added snooze expiry restoration test
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v2.9`
+
+### 45.3 v2.9 Validation Status
+
+Executed on 2026-02-08:
+
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+
+Result:
+
+- frontend tests passed (`32/32`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+- play-mode E2E targeted checks passed (`4 passed`, `28 skipped`)
+
+### 45.4 Remaining Constraints
+
+- Snooze state is local to one browser profile and not shared across devices/operators.

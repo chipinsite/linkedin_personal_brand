@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from '../App';
 
+const ALERT_SNOOZE_KEY = 'app.dashboard.alertSnoozes';
+
 function mockJson(data) {
   return Promise.resolve({
     ok: true,
@@ -267,6 +269,53 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
     expect(screen.getByText('0 active')).toBeInTheDocument();
     expect(screen.getByText('No active operational alerts.')).toBeInTheDocument();
+  });
+
+  it('snoozes an operational alert for two hours', async () => {
+    setupMockApi({
+      adminConfig: { kill_switch: true, posting_enabled: true },
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
+    expect(screen.getByText('1 active')).toBeInTheDocument();
+    expect(screen.getByText(/Kill switch is ON/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Snooze kill-switch' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('0 active')).toBeInTheDocument();
+      expect(screen.queryByText(/Kill switch is ON/)).not.toBeInTheDocument();
+      expect(screen.getByText('No active operational alerts.')).toBeInTheDocument();
+    });
+
+    const snoozes = JSON.parse(localStorage.getItem(ALERT_SNOOZE_KEY) || '{}');
+    expect(Number(snoozes['kill-switch'] || 0)).toBeGreaterThan(Date.now());
+  });
+
+  it('restores snoozed alert after expiration on refresh', async () => {
+    const baseNow = 1_700_000_000_000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(baseNow);
+    localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify({ 'kill-switch': baseNow + 2 * 60 * 60 * 1000 }));
+
+    setupMockApi({
+      adminConfig: { kill_switch: true, posting_enabled: true },
+    });
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText('Operational Alerts')).toBeInTheDocument());
+    expect(screen.getByText('0 active')).toBeInTheDocument();
+    expect(screen.queryByText(/Kill switch is ON/)).not.toBeInTheDocument();
+
+    nowSpy.mockReturnValue(baseNow + 2 * 60 * 60 * 1000 + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 active')).toBeInTheDocument();
+      expect(screen.getByText(/Kill switch is ON/)).toBeInTheDocument();
+    });
+
+    nowSpy.mockRestore();
   });
 
   it('calls generate draft endpoint when Generate is clicked', async () => {

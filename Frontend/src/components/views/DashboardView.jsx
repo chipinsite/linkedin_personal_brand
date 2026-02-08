@@ -5,6 +5,8 @@ import Button from '../ui/Button';
 import MetricCard from '../ui/MetricCard';
 
 const METRIC_DEFAULTS = { impressions: 1000, reactions: 40, comments_count: 8, shares: 3 };
+const ALERT_SNOOZE_KEY = 'app.dashboard.alertSnoozes';
+const SNOOZE_MS = 2 * 60 * 60 * 1000;
 
 function isDueNow(post) {
   if (!post || post.published_at || !post.scheduled_time) {
@@ -42,6 +44,15 @@ export default function DashboardView() {
   });
   const [metricsTargetPostId, setMetricsTargetPostId] = useState('');
   const [metricsInput, setMetricsInput] = useState(METRIC_DEFAULTS);
+  const [alertSnoozes, setAlertSnoozes] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ALERT_SNOOZE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
 
   async function refreshData() {
     const [healthRes, readinessRes, adminConfigRes, draftsRes, postsRes, commentsRes, sourcesRes, reportRes] = await Promise.all([
@@ -95,6 +106,14 @@ export default function DashboardView() {
       // ignore storage write failures in constrained environments
     }
   }, [publishFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify(alertSnoozes));
+    } catch {
+      // ignore storage write failures in constrained environments
+    }
+  }, [alertSnoozes]);
 
   async function bootstrapDemoData() {
     const seedBody = `A practical observation on Adtech execution and what teams can do differently this week. [demo ${Date.now()}]`;
@@ -180,6 +199,13 @@ export default function DashboardView() {
     }
     return alerts;
   }, [adminConfig, publishQueueSummary.dueNow, escalatedCount]);
+  const visibleOperationalAlerts = (() => {
+    const now = Date.now();
+    return operationalAlerts.filter((alert) => {
+      const until = Number(alertSnoozes[alert.id] || 0);
+      return !until || until <= now;
+    });
+  })();
 
   function alertStyle(tone) {
     if (tone === 'critical') {
@@ -189,6 +215,13 @@ export default function DashboardView() {
       return { bg: C.warningMuted, color: C.warning };
     }
     return { bg: C.infoMuted, color: C.info };
+  }
+
+  function snoozeAlert(alertId) {
+    setAlertSnoozes((prev) => ({
+      ...prev,
+      [alertId]: Date.now() + SNOOZE_MS,
+    }));
   }
 
   return (
@@ -221,16 +254,24 @@ export default function DashboardView() {
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '16px', display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '13px', color: C.text, fontWeight: 600 }}>Operational Alerts</span>
-          <span style={{ fontSize: '12px', color: C.textMuted }}>{operationalAlerts.length} active</span>
+          <span style={{ fontSize: '12px', color: C.textMuted }}>{visibleOperationalAlerts.length} active</span>
         </div>
-        {operationalAlerts.length === 0 ? (
+        {visibleOperationalAlerts.length === 0 ? (
           <div style={{ fontSize: '12px', color: C.textMuted }}>No active operational alerts.</div>
         ) : (
-          operationalAlerts.map((alert) => {
+          visibleOperationalAlerts.map((alert) => {
             const style = alertStyle(alert.tone);
             return (
-              <div key={alert.id} style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px' }}>
-                {alert.message}
+              <div key={alert.id} style={{ background: style.bg, color: style.color, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                <span>{alert.message}</span>
+                <Button
+                  size="sm"
+                  variant="default"
+                  aria-label={`Snooze ${alert.id}`}
+                  onClick={() => snoozeAlert(alert.id)}
+                >
+                  Snooze 2h
+                </Button>
               </div>
             );
           })
