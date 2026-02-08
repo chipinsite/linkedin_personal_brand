@@ -1065,6 +1065,7 @@ All AI generated content must adhere to:
 | 2.5 | 2026-02-08 | Restored algorithm alignment and audit trail visibility in Settings with coverage |
 | 2.6 | 2026-02-08 | Added Settings audit filter controls and filtering test coverage |
 | 2.7 | 2026-02-08 | Added dashboard operational alerts for kill switch, posting state, due posts, and escalations with test coverage |
+| 2.8 | 2026-02-08 | Added play-mode E2E runner for critical dashboard/settings flows with sandbox-safe execution mode |
 
 ---
 
@@ -2436,3 +2437,52 @@ Result:
 ### 43.4 Remaining Constraints
 
 - Alerts are derived from current dashboard payload and do not yet include historical trend context.
+
+---
+
+## 44. v2.8 Play-Mode E2E Runner (2026-02-08)
+
+### 44.1 v2.8 Scope
+
+v2.8 adds a single-command play-mode validation runner:
+
+- boot local services and validate readiness
+- execute critical Dashboard/Settings checks in one path
+- support restricted environments where local port binding is unavailable
+
+### 44.2 v2.8 Implementation Added
+
+- Added runner script:
+  - `/Users/sphiwemawhayi/Personal Brand/scripts/play_mode_e2e.sh`
+  - performs health/readiness polling with timeout and cleanup traps
+  - runs live API walkthrough when servers are enabled
+  - runs targeted frontend flow tests covering Dashboard + Settings critical checks
+  - supports `PLAY_E2E_SKIP_SERVERS=1` for sandbox/CI environments
+  - bootstraps `Backend/.env` from `.env.example` when missing
+  - sets fallback local SQLite `DATABASE_URL` when unset for deterministic startup
+- Updated sidebar marker:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+  - version set to `v2.8`
+- Updated usage docs:
+  - `/Users/sphiwemawhayi/Personal Brand/README.md`
+  - added play-mode E2E command and restricted-environment invocation
+
+### 44.3 v2.8 Validation Status
+
+Executed on 2026-02-08:
+
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- play-mode E2E targeted checks passed (`4 passed`, `26 skipped`)
+- frontend tests passed (`30/30`)
+- frontend production build passed
+- unified smoke run passed (`18` backend tests + frontend tests + frontend build)
+
+### 44.4 Remaining Constraints
+
+- Full server-start branch of the runner could not be executed in this sandbox because binding local ports is blocked (`operation not permitted`), but remains enabled for normal local runs.

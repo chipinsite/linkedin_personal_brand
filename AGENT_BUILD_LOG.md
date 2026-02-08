@@ -2426,3 +2426,91 @@ Dashboard now surfaces high-priority operational conditions directly in the defa
 - Add optional alert dismissal/snooze controls if operator noise increases.
 
 ---
+## [2026-02-08 19:49 SAST] Build: v2.8 Play-Mode E2E Runner
+
+### Build Phase
+Post Build
+
+### Goal
+Automate critical play-mode verification so Dashboard/Settings operator flows can be validated in one command.
+
+### Context
+Current validation relies on separate smoke and manual play steps. A single play-mode runner closes this usability gap and speeds autonomous iteration.
+
+### Scope
+In scope:
+- Add a play-mode E2E shell runner script at project level
+- Start backend and frontend services, wait for readiness, and run targeted checks
+- Add/adjust frontend tests for critical Dashboard/Settings assertions used by the runner
+- Document usage in README and CLAUDE
+Out of scope:
+- Introducing new third-party browser automation frameworks
+- Backend feature changes
+
+### Planned Changes (Pre Build only)
+N/A
+
+### Actual Changes Made (Post Build only)
+- Added `/Users/sphiwemawhayi/Personal Brand/scripts/play_mode_e2e.sh`:
+- starts backend/frontend with readiness polling and cleanup traps
+- runs live API walkthrough and targeted Dashboard/Settings tests in normal mode
+- supports `PLAY_E2E_SKIP_SERVERS=1` for restricted sandbox/CI environments
+- bootstraps `Backend/.env` from `.env.example` when missing
+- applies fallback SQLite `DATABASE_URL` when unset
+- avoids backend `--reload` watcher mode for local E2E server startup compatibility
+- Updated `/Users/sphiwemawhayi/Personal Brand/README.md`:
+- version status bumped to `v2.8`
+- added `play_mode_e2e.sh` usage and restricted-environment invocation
+- Updated `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`:
+- added v2.8 version history row and implementation section
+- Updated `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`:
+- bumped UI marker to `v2.8`
+
+### Files Touched
+- `/Users/sphiwemawhayi/Personal Brand/AGENT_BUILD_LOG.md`
+- `/Users/sphiwemawhayi/Personal Brand/scripts/play_mode_e2e.sh`
+- `/Users/sphiwemawhayi/Personal Brand/README.md`
+- `/Users/sphiwemawhayi/Personal Brand/CLAUDE.md`
+- `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx`
+
+### Reasoning
+A single executable validation path reduces operator friction and shortens feedback loops while remaining compatible with current dependencies.
+
+### Assumptions
+- Backend virtual environment and frontend dependencies are already installed locally.
+- Existing tests provide sufficient flow coverage for Dashboard and Settings core behaviors.
+
+### Risks and Tradeoffs
+- Risk: Process startup timing can be flaky across environments.
+- Mitigation: add deterministic health polling with timeout and explicit cleanup traps.
+
+### Tests and Validation
+Commands run:
+- `PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+Manual checks:
+- Confirmed targeted Dashboard/Settings tests execute through the new runner path.
+- Attempted full server-start runner path; blocked by sandbox port bind permissions.
+Result:
+- play-mode E2E targeted checks passed (`4 passed`, `26 skipped`)
+- Frontend tests passed (`30/30`)
+- Frontend production build passed
+- Unified smoke script passed (`18` backend tests + frontend tests + frontend build)
+- Full local server-start branch in this sandbox is blocked by `operation not permitted` on bind.
+
+### Result
+Repository now includes a single-command play-mode E2E runner with a validated fallback mode for restricted environments.
+
+### Confidence Rating
+8/10. Script logic is validated through targeted execution and full project smoke checks; confidence is reduced because full local-server branch could not be completed in this sandbox.
+
+### Known Gaps or Uncertainty
+- In this environment, local service bind on `127.0.0.1:8000` is blocked, so the non-skip branch could not be end-to-end verified here.
+
+### Next Steps
+- Run `./scripts/play_mode_e2e.sh` on unrestricted local host to verify the full server-start branch.
+- Expand runner coverage to include additional content/engagement critical paths after dashboard/settings baseline.
+
+---

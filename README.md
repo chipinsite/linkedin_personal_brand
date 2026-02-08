@@ -6,7 +6,7 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 - Backend through `v0.9` implemented and tested.
 - Frontend operations console implemented.
-- `v2.7` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
+- `v2.8` baseline smoke test is available and passing (backend tests + frontend tests + frontend build).
 
 ## Run locally
 
@@ -66,6 +66,22 @@ cd /Users/sphiwemawhayi/Personal\ Brand
 ```bash
 cd /Users/sphiwemawhayi/Personal\ Brand
 ./scripts/run_frontend.sh
+```
+
+### Play-mode E2E runner
+
+For one-command Dashboard/Settings flow verification:
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+./scripts/play_mode_e2e.sh
+```
+
+If local port binding is restricted (sandbox/CI):
+
+```bash
+cd /Users/sphiwemawhayi/Personal\ Brand
+PLAY_E2E_SKIP_SERVERS=1 ./scripts/play_mode_e2e.sh
 ```
 
 ### Live API walkthrough
