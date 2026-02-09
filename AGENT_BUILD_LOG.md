@@ -3670,6 +3670,92 @@ Local startup is now resilient for single-user dev flow: Alembic upgrades work w
 
 ---
 
+## [2026-02-09 05:00 SAST] Build: v4.9 JWT Authentication Module
+
+### Build Phase
+Post Build
+
+### Goal
+Add complete JWT-based authentication with user registration, login, logout, token refresh, and hybrid auth support for both API keys and JWT tokens.
+
+### Context
+Authentication was previously static API-key based. Need proper user management for future multi-user scenarios and more secure session handling.
+
+### Scope
+In scope:
+- User model with password hashing (bcrypt)
+- JWT access tokens (15min) and refresh tokens (7 days)
+- Registration, login, logout, token refresh endpoints
+- Hybrid auth dependency supporting both API key and JWT
+- Protected route demonstration
+
+Out of scope:
+- Role-based access control
+- OAuth/social login
+- Email verification
+
+### Planned Changes
+1. Create User model and migration
+2. Create jwt_auth.py service with token generation/validation
+3. Create auth.py routes for registration, login, logout, refresh
+4. Update auth.py dependency to support hybrid auth
+5. Add comprehensive tests
+
+### Files Touched
+- Backend/app/models.py (modified - User model)
+- Backend/app/services/jwt_auth.py (new)
+- Backend/app/routes/auth.py (new)
+- Backend/app/services/auth.py (modified - hybrid auth)
+- Backend/app/schemas.py (modified - auth schemas)
+- Backend/alembic/versions/0006_users.py (new)
+- Backend/tests/test_v14_auth_module.py (new)
+- Frontend/src/components/layout/Sidebar.jsx (modified)
+
+### Reasoning
+Proper JWT authentication enables secure session management, future multi-user support, and better API security compared to static API keys alone.
+
+### Actual Changes
+1. Added User model with hashed password storage
+2. Created jwt_auth.py service:
+   - generate_access_token() / generate_refresh_token()
+   - verify_token() / decode_token()
+   - hash_password() / verify_password()
+   - Token blacklist support for logout
+3. Created auth.py routes:
+   - POST /auth/register
+   - POST /auth/login
+   - POST /auth/logout
+   - POST /auth/refresh
+   - GET /auth/me
+   - POST /auth/change-password
+4. Updated auth.py dependency:
+   - require_auth() supports both API key header and JWT Bearer token
+5. Added Alembic migration for users table
+
+### Tests and Validation
+- Backend: 135 tests passed (15 new auth tests)
+- Frontend: 51 tests passed
+- test_v14_auth_module.py covers:
+  - User registration
+  - Login success/failure
+  - Token refresh
+  - Logout with token invalidation
+  - Protected route access
+  - Hybrid auth (API key + JWT)
+
+### Result
+Passed
+
+### Confidence Rating
+High - Complete authentication flow with comprehensive test coverage.
+
+### Known Gaps
+- No email verification
+- No password reset flow
+- No role-based permissions
+
+---
+
 ## [2026-02-09 05:35 SAST] Build: v5.0 AI Content Generation Engine
 
 ### Build Phase
