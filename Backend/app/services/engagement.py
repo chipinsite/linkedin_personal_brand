@@ -8,7 +8,11 @@ from ..config import settings
 from ..models import Comment, PublishedPost
 from .comment_triage import triage_comment
 from .config_state import is_comment_replies_enabled, is_kill_switch_on
-from .linkedin import LinkedInApiError, fetch_recent_comments_for_post
+from .linkedin import (
+    LinkedInApiError,
+    fetch_post_metrics,
+    fetch_recent_comments_for_post,
+)
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -111,3 +115,59 @@ def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
 
     db.commit()
     return {"processed_posts": len(posts), "new_comments": new_comments, "errors": errors, "status": "ok"}
+
+
+def poll_and_store_metrics(db: Session) -> dict:
+    """Poll LinkedIn for post metrics and update the database.
+
+    Fetches metrics for all posts with a linkedin_post_id that were
+    published in the last 7 days (active engagement window).
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dict with updated_posts count, errors count, and status
+    """
+    if is_kill_switch_on(db):
+        return {"updated_posts": 0, "errors": 0, "status": "kill_switch"}
+
+    if settings.linkedin_api_mode != "api" or not settings.linkedin_api_token:
+        # Check for mock mode
+        if not settings.linkedin_mock_metrics_json:
+            return {"updated_posts": 0, "errors": 0, "status": "not_configured"}
+
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+
+    # Get posts from the last 7 days with LinkedIn post IDs
+    candidate_posts = (
+        db.query(PublishedPost)
+        .filter(PublishedPost.linkedin_post_id.is_not(None))
+        .filter(PublishedPost.published_at.is_not(None))
+        .filter(PublishedPost.published_at >= seven_days_ago)
+        .all()
+    )
+
+    updated = 0
+    errors = 0
+
+    for post in candidate_posts:
+        try:
+            metrics = fetch_post_metrics(post.linkedin_post_id or "")
+
+            # Update post metrics
+            post.impressions = metrics.impressions
+            post.reactions = metrics.reactions
+            post.comments_count = metrics.comments_count
+            post.shares = metrics.shares
+            post.engagement_rate = metrics.engagement_rate
+            post.last_metrics_update = now
+
+            updated += 1
+        except LinkedInApiError:
+            errors += 1
+            continue
+
+    db.commit()
+    return {"updated_posts": updated, "errors": errors, "status": "ok"}

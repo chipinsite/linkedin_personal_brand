@@ -5,7 +5,12 @@ from ..db import get_db
 from ..models import PublishedPost
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
-from ..services.engagement import _as_utc, _is_post_due_for_poll, poll_and_store_comments
+from ..services.engagement import (
+    _as_utc,
+    _is_post_due_for_poll,
+    poll_and_store_comments,
+    poll_and_store_metrics,
+)
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/engagement", tags=["engagement"])
@@ -19,6 +24,20 @@ def poll_comments(db: Session = Depends(get_db), _auth: None = Depends(require_w
         actor="api",
         action="engagement.poll",
         resource_type="comment",
+        detail=result,
+    )
+    return result
+
+
+@router.post("/poll-metrics")
+def poll_metrics(db: Session = Depends(get_db), _auth: None = Depends(require_write_access)):
+    """Poll LinkedIn for post metrics and update database."""
+    result = poll_and_store_metrics(db=db)
+    log_audit(
+        db=db,
+        actor="api",
+        action="engagement.poll_metrics",
+        resource_type="post",
         detail=result,
     )
     return result

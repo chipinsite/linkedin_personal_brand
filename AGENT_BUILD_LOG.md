@@ -3903,3 +3903,109 @@ High - All tests pass, inline keyboard functionality verified with mocked httpx,
 6. Commit
 
 ---
+
+## [2026-02-09 08:45 SAST] Build: v5.2 LinkedIn Read Integration
+
+### Build Phase
+Post Build
+
+### Goal
+Enhance the LinkedIn adapter to fetch post metrics (impressions, reactions, comments count, shares) and integrate with the learning loop for performance tracking.
+
+### Context
+Phase 3 of 4-phase implementation plan. LinkedIn adapter exists with comment fetching and pagination support. Need to add metrics fetching and automatic metrics polling for the learning loop.
+
+### Scope
+In scope:
+- Add fetch_post_metrics() to linkedin.py for getting post statistics
+- Add mock metrics support for testing
+- Add automatic metrics polling in engagement service
+- Add endpoint to trigger metrics update for all monitored posts
+- Integrate metrics with learning loop
+- Tests for metrics fetching and integration
+
+Out of scope:
+- LinkedIn write/publish API (manual publish mode remains)
+- Comment posting/reply via LinkedIn API
+- WhatsApp integration
+
+### Actual Changes
+1. Enhanced linkedin.py
+   - Added LinkedInPostMetrics dataclass with engagement_rate auto-calculation
+   - Added _parse_metrics_response() for multiple LinkedIn API response formats
+   - Added _mock_metrics_for_post() for test mode
+   - Added fetch_post_metrics() function with retry and error handling
+   - Added fetch_metrics_batch() for batch processing
+
+2. Enhanced engagement.py
+   - Added poll_and_store_metrics() function
+   - Polls posts from last 7 days with linkedin_post_id
+   - Updates post metrics and last_metrics_update timestamp
+
+3. Enhanced routes/engagement.py
+   - Added POST /engagement/poll-metrics endpoint
+   - Includes audit logging
+
+4. Enhanced config.py
+   - Added linkedin_mock_metrics_json setting
+
+5. Created test_v17_linkedin_metrics.py
+   - LinkedInPostMetricsTest (3 tests)
+   - MetricsParsingTest (5 tests)
+   - MockMetricsTest (2 tests)
+   - FetchPostMetricsTest (2 tests)
+   - EngagementServiceMetricsTest (2 tests)
+   - EngagementRoutesMetricsTest (2 tests)
+
+### Files Touched
+- Backend/app/services/linkedin.py (modified)
+- Backend/app/services/engagement.py (modified)
+- Backend/app/routes/engagement.py (modified)
+- Backend/app/config.py (modified - added linkedin_mock_metrics_json)
+- Backend/tests/test_v17_linkedin_metrics.py (new - 16 tests)
+- Frontend/src/components/layout/Sidebar.jsx (modified - version to v5.2)
+- CLAUDE.md (modified - version history)
+
+### Reasoning
+Automatic metrics fetching completes the learning loop by providing real engagement data. This allows the system to learn which formats and tones perform best based on actual LinkedIn metrics.
+
+### Assumptions
+- LinkedIn API provides post statistics via REST endpoint
+- Metrics endpoint follows similar auth pattern as comments
+- Mock mode continues to work for testing
+
+### Risks and Tradeoffs
+- Risk: LinkedIn API rate limits on metrics endpoints
+- Mitigation: Respect polling intervals, batch requests where possible
+- Risk: Metrics may have delay in LinkedIn's system
+- Mitigation: Accept eventual consistency, poll periodically
+
+### Tests and Validation
+Commands to run:
+- cd Backend && ./.venv/bin/python -m pytest tests/ -v
+- cd Frontend && npm test -- --run
+- ./scripts/v1_smoke.sh
+
+### Result
+- Backend tests: 135 passed
+- Frontend tests: 51 passed
+- Frontend build: passed
+- Unified smoke: passed
+
+### Confidence Rating
+High - All tests pass, metrics parsing handles multiple LinkedIn API response formats, mock mode works for testing, engagement service correctly polls and updates post metrics.
+
+### Known Gaps or Uncertainty
+- Real LinkedIn API endpoint mapping may need adjustment once official API access is granted
+- Metrics API rate limits not yet observed in production
+- Batch metrics endpoint could be optimized for bulk requests if LinkedIn supports it
+
+### Next Steps
+Phase 4: Comment Handling & Escalation (v5.3)
+2. Update engagement.py
+3. Add routes endpoint
+4. Add tests
+5. Run validation
+6. Commit
+
+---
