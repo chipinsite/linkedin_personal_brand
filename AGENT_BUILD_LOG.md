@@ -4009,3 +4009,157 @@ Phase 4: Comment Handling & Escalation (v5.3)
 6. Commit
 
 ---
+
+## [2026-02-09 08:55 SAST] Build: v5.3 Comment Handling & Escalation
+
+### Build Phase
+Post Build
+
+### Goal
+Complete the comment handling workflow with LLM-powered auto-replies, escalation notifications via Telegram, and suggested reply generation for high-value comments.
+
+### Context
+Phase 4 of 4-phase implementation plan (final phase). Comment triage exists with keyword-based classification. Need to add LLM integration for contextual replies and Telegram escalation notifications.
+
+### Scope
+In scope:
+- Enhance comment_triage.py with MEDIA_INQUIRY detection
+- Add LLM-powered auto-reply generation
+- Add escalation notification via Telegram with comment details
+- Generate suggested reply options for escalated comments
+- Add escalation handling endpoint
+- Tests for comment handling workflow
+
+Out of scope:
+- LinkedIn comment reply API (manual reply mode)
+- WhatsApp escalation channel
+- Multi-user escalation routing
+
+### Planned Changes
+1. Enhance comment_triage.py
+   - Add MEDIA_INQUIRY detection for interview/quote requests
+   - Add comment context awareness
+
+2. Create comment_reply.py service
+   - generate_auto_reply() using LLM
+   - generate_suggested_replies() for escalated comments
+   - Mock mode support for testing
+
+3. Enhance telegram_service.py
+   - Add send_escalation_notification()
+   - Format escalation payload per CLAUDE.md section 6.2
+
+4. Enhance engagement.py
+   - Integrate LLM auto-reply generation
+   - Send escalation notifications for high-value comments
+
+5. Add routes/comments.py endpoint
+   - POST /comments/{id}/resolve-escalation
+
+6. Add tests for new functionality
+
+### Files Touched
+- Backend/app/services/comment_triage.py (modified)
+- Backend/app/services/comment_reply.py (new)
+- Backend/app/services/telegram_service.py (modified)
+- Backend/app/services/engagement.py (modified)
+- Backend/app/routes/comments.py (modified)
+- Backend/tests/test_v18_comment_handling.py (new)
+- Frontend/src/components/layout/Sidebar.jsx (modified)
+
+### Reasoning
+LLM-powered replies provide contextual, engaging responses instead of generic thanks. Telegram escalation ensures high-value comments get timely human attention. Suggested replies speed up manual response for escalated comments.
+
+### Actual Changes
+1. Enhanced comment_triage.py
+   - Added MEDIA_INQUIRY_MARKERS for interview/podcast/article detection
+   - Added HighValueReason constants class
+   - Reordered checks to prioritize OBJECTION before TECHNICAL_QUESTION (avoids false matches)
+
+2. Created comment_reply.py service
+   - generate_auto_reply() using LLM with fallback templates
+   - generate_suggested_replies() with reason-specific templates
+   - Uses generate_text from llm_client with proper LLMResponse handling
+
+3. Enhanced telegram_service.py
+   - format_escalation_notification() with commenter info and suggested replies
+   - build_escalation_keyboard() with resolve/ignore buttons
+   - send_escalation_notification() using existing message infrastructure
+
+4. Enhanced engagement.py
+   - Integrated LLM auto-reply generation for eligible comments
+   - Send escalation notifications for high-value comments
+   - Track escalations count in poll results
+
+5. Added routes/comments.py endpoints
+   - GET /comments/escalated - list pending escalations
+   - GET /comments/{id} - get single comment
+   - GET /comments/{id}/suggested-replies - get LLM-generated suggestions
+   - POST /comments/{id}/resolve-escalation - mark as resolved/replied/ignored
+
+6. Enhanced telegram/bot.py
+   - _get_comment_by_short_id() for callback lookups
+   - Handle "resolve" and "ignore" callback actions
+
+7. Updated schemas.py
+   - Added manual_reply_sent, manual_reply_text, escalated_at to CommentRead
+
+### Tests and Validation
+- Backend: 160 tests passed (25 new v5.3 tests)
+- Frontend: 51 tests passed
+- New test file: test_v18_comment_handling.py
+  - CommentTriageEnhancedTest (8 tests)
+  - AutoReplyGenerationTest (3 tests)
+  - SuggestedRepliesTest (5 tests)
+  - EscalationNotificationTest (3 tests)
+  - EscalationRoutesTest (5 tests)
+  - EngagementServiceCommentProcessingTest (1 test)
+
+### Result
+Passed
+
+### Confidence Rating
+High - All planned features implemented with comprehensive test coverage. LLM integration uses existing llm_client pattern with proper mock mode support.
+
+### Known Gaps
+- Actual LinkedIn comment reply posting requires manual action (by design per compliance)
+- WhatsApp escalation channel not implemented (out of scope)
+- No rate limiting on suggested reply generation endpoint
+
+### Assumptions
+- LLM client from v5.0 content engine is reusable for reply generation
+- Telegram integration from v5.1 is reusable for escalation
+- Comment triage already identifies high-value comments correctly
+
+### Risks and Tradeoffs
+- Risk: LLM may generate inappropriate replies
+- Mitigation: Keep auto-reply tone neutral and appreciative
+- Risk: Too many escalations may overwhelm user
+- Mitigation: Triage thresholds prevent over-escalation
+
+### Tests and Validation
+Commands to run:
+- cd Backend && ./.venv/bin/python -m pytest tests/ -v
+- cd Frontend && npm test -- --run
+- ./scripts/v1_smoke.sh
+
+### Result
+(To be filled in Post Build)
+
+### Confidence Rating
+(To be filled in Post Build)
+
+### Known Gaps or Uncertainty
+(To be filled in Post Build)
+
+### Next Steps
+1. Enhance comment_triage.py
+2. Create comment_reply.py
+3. Add escalation to telegram_service.py
+4. Update engagement.py
+5. Add escalation endpoint
+6. Add tests
+7. Run validation
+8. Commit
+
+---

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import Comment, PublishedPost
+from .comment_reply import generate_auto_reply, generate_suggested_replies
 from .comment_triage import triage_comment
 from .config_state import is_comment_replies_enabled, is_kill_switch_on
 from .linkedin import (
@@ -13,6 +14,7 @@ from .linkedin import (
     fetch_post_metrics,
     fetch_recent_comments_for_post,
 )
+from .telegram_service import send_escalation_notification
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -48,11 +50,27 @@ def _is_post_due_for_poll(post: PublishedPost, now: datetime) -> bool:
 
 
 def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
+    """Poll LinkedIn for new comments and process them.
+
+    For each new comment:
+    - Triages to determine if high-value
+    - Generates auto-reply if eligible (using LLM or fallback)
+    - Sends escalation notification via Telegram if high-value
+
+    Args:
+        db: Database session
+        since_minutes: Look back window for comments
+
+    Returns:
+        Dict with processed_posts, new_comments, escalations, errors, status
+    """
     if is_kill_switch_on(db):
-        return {"processed_posts": 0, "new_comments": 0, "status": "kill_switch"}
+        return {"processed_posts": 0, "new_comments": 0, "escalations": 0, "status": "kill_switch"}
 
     if settings.linkedin_api_mode != "api" or not settings.linkedin_api_token:
-        return {"processed_posts": 0, "new_comments": 0, "status": "not_configured"}
+        # Check for mock mode
+        if not settings.linkedin_mock_comments_json:
+            return {"processed_posts": 0, "new_comments": 0, "escalations": 0, "status": "not_configured"}
 
     now = datetime.now(timezone.utc)
     candidate_posts = (
@@ -64,6 +82,7 @@ def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
     )
     posts = [post for post in candidate_posts if _is_post_due_for_poll(post, now)]
     new_comments = 0
+    escalations = 0
     errors = 0
 
     for post in posts:
@@ -73,6 +92,10 @@ def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
             errors += 1
             post.last_comment_poll_at = now
             continue
+
+        # Get post summary for context in replies
+        post_summary = post.content_body[:200] if post.content_body else None
+
         for item in fetched:
             exists = db.query(Comment).filter(Comment.linkedin_comment_id == item.linkedin_comment_id).first()
             if exists:
@@ -93,6 +116,7 @@ def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
             row.escalated = triage.high_value
             row.escalated_at = datetime.now(timezone.utc) if triage.high_value else None
 
+            # Handle auto-reply for non-high-value comments
             auto_reply_count = (
                 db.query(Comment)
                 .filter(Comment.published_post_id == row.published_post_id)
@@ -104,17 +128,48 @@ def poll_and_store_comments(db: Session, since_minutes: int = 15) -> dict:
                 and is_comment_replies_enabled(db)
                 and auto_reply_count < settings.max_auto_replies
             ):
+                # Generate contextual auto-reply using LLM or fallback
                 row.auto_reply_sent = True
-                row.auto_reply_text = "Thanks for the thoughtful comment."
+                row.auto_reply_text = generate_auto_reply(
+                    comment_text=row.comment_text,
+                    post_summary=post_summary,
+                )
                 row.auto_reply_sent_at = datetime.now(timezone.utc)
 
             db.add(row)
+            db.flush()  # Get the row ID for escalation notification
             new_comments += 1
+
+            # Send escalation notification for high-value comments
+            if triage.high_value:
+                suggested_replies = generate_suggested_replies(
+                    comment_text=row.comment_text,
+                    high_value_reason=triage.reason,
+                    post_summary=post_summary,
+                )
+                send_escalation_notification(
+                    db=db,
+                    comment_id=str(row.id),
+                    comment_text=row.comment_text,
+                    commenter_name=row.commenter_name,
+                    commenter_profile_url=row.commenter_profile_url,
+                    commenter_follower_count=row.commenter_follower_count,
+                    high_value_reason=triage.reason,
+                    post_url=post.linkedin_post_url,
+                    suggested_replies=suggested_replies,
+                )
+                escalations += 1
 
         post.last_comment_poll_at = now
 
     db.commit()
-    return {"processed_posts": len(posts), "new_comments": new_comments, "errors": errors, "status": "ok"}
+    return {
+        "processed_posts": len(posts),
+        "new_comments": new_comments,
+        "escalations": escalations,
+        "errors": errors,
+        "status": "ok",
+    }
 
 
 def poll_and_store_metrics(db: Session) -> dict:

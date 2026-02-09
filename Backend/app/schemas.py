@@ -76,8 +76,11 @@ class CommentRead(BaseModel):
     is_high_value: bool
     high_value_reason: str | None
     escalated: bool
+    escalated_at: datetime | None
     auto_reply_sent: bool
     auto_reply_text: str | None
+    manual_reply_sent: bool
+    manual_reply_text: str | None
 
     class Config:
         from_attributes = True

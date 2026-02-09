@@ -223,3 +223,139 @@ def send_draft_approval_notification(db: Session, draft: Draft) -> bool:
         event_type="DRAFT_APPROVAL",
         inline_keyboard=keyboard,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Comment Escalation Notifications
+# ─────────────────────────────────────────────────────────────────────────────
+
+def format_escalation_notification(
+    comment_text: str,
+    commenter_name: str,
+    commenter_profile_url: str | None,
+    commenter_follower_count: int | None,
+    high_value_reason: str | None,
+    post_url: str | None,
+    suggested_replies: list[str] | None = None,
+) -> str:
+    """Format a comment escalation notification.
+
+    Matches CLAUDE.md section 6.2 escalation payload format.
+
+    Args:
+        comment_text: The comment text
+        commenter_name: Name of the commenter
+        commenter_profile_url: LinkedIn profile URL (if available)
+        commenter_follower_count: Follower count (if available)
+        high_value_reason: Why this was flagged as high-value
+        post_url: URL of the LinkedIn post
+        suggested_replies: Optional list of suggested reply options
+
+    Returns:
+        Formatted notification text
+    """
+    # Reason display mapping
+    reason_display = {
+        "PARTNERSHIP_SIGNAL": "Partnership signal",
+        "TECHNICAL_QUESTION": "Technical question",
+        "OBJECTION": "Objection/Challenge",
+        "INFLUENTIAL": "Influential commenter",
+        "MEDIA_INQUIRY": "Media inquiry",
+    }
+
+    reason_text = reason_display.get(high_value_reason, high_value_reason or "High-value")
+    follower_text = f"{commenter_follower_count:,}" if commenter_follower_count else "Unknown"
+    profile_text = commenter_profile_url or "Not available"
+    post_text = post_url or "Not available"
+
+    # Build suggested replies section
+    replies_section = ""
+    if suggested_replies:
+        replies_lines = [f"{i+1}. {reply}" for i, reply in enumerate(suggested_replies)]
+        replies_section = "\n\nSuggested Replies:\n" + "\n".join(replies_lines)
+
+    text = f"""🔔 High Value Comment Detected
+
+Post: {post_text}
+
+Commenter: {commenter_name}
+Profile: {profile_text}
+Followers: {follower_text}
+
+─────────────────────────
+
+{comment_text}
+
+─────────────────────────
+
+Escalation Reason: {reason_text}{replies_section}
+
+Actions:
+📤 Reply manually on LinkedIn
+🚫 Ignore if not relevant"""
+
+    return text
+
+
+def build_escalation_keyboard(comment_id: str) -> list[list[dict]]:
+    """Build inline keyboard for escalation notification.
+
+    Args:
+        comment_id: UUID of the comment
+
+    Returns:
+        Inline keyboard layout
+    """
+    short_id = str(comment_id)[:8]
+    return [
+        [
+            {"text": "✅ Mark Resolved", "callback_data": f"resolve:{short_id}"},
+            {"text": "🚫 Ignore", "callback_data": f"ignore:{short_id}"},
+        ],
+    ]
+
+
+def send_escalation_notification(
+    db: Session,
+    comment_id: str,
+    comment_text: str,
+    commenter_name: str,
+    commenter_profile_url: str | None,
+    commenter_follower_count: int | None,
+    high_value_reason: str | None,
+    post_url: str | None,
+    suggested_replies: list[str] | None = None,
+) -> bool:
+    """Send comment escalation notification with inline keyboard.
+
+    Args:
+        db: Database session
+        comment_id: Comment UUID for callback
+        comment_text: The comment text
+        commenter_name: Name of the commenter
+        commenter_profile_url: LinkedIn profile URL
+        commenter_follower_count: Follower count
+        high_value_reason: Why this was flagged
+        post_url: URL of the LinkedIn post
+        suggested_replies: Optional suggested reply options
+
+    Returns:
+        True if notification was sent successfully
+    """
+    text = format_escalation_notification(
+        comment_text=comment_text,
+        commenter_name=commenter_name,
+        commenter_profile_url=commenter_profile_url,
+        commenter_follower_count=commenter_follower_count,
+        high_value_reason=high_value_reason,
+        post_url=post_url,
+        suggested_replies=suggested_replies,
+    )
+    keyboard = build_escalation_keyboard(comment_id)
+
+    return send_telegram_message_with_keyboard(
+        db=db,
+        text=text,
+        event_type="COMMENT_ESCALATION",
+        inline_keyboard=keyboard,
+    )

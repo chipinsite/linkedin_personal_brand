@@ -19,10 +19,20 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 
 from ..config import settings
 from ..db import SessionLocal
-from ..models import Draft, DraftStatus
+from ..models import Comment, Draft, DraftStatus
 from ..services.audit import log_audit
 from ..services.telegram_service import format_draft_notification
 from ..services.workflow import approve_draft_and_schedule
+
+
+def _get_comment_by_short_id(db, short_id: str) -> Comment | None:
+    """Look up a comment by short ID prefix."""
+    if len(short_id) >= 8:
+        comments = db.query(Comment).filter(Comment.escalated.is_(True)).all()
+        for comment in comments:
+            if str(comment.id).startswith(short_id):
+                return comment
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -309,6 +319,40 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=update.effective_chat.id,
                 text=text,
             )
+
+        elif action in ("resolve", "ignore"):
+            # Handle comment escalation callbacks
+            comment = _get_comment_by_short_id(db, short_id)
+            if not comment:
+                await query.edit_message_text("❌ Comment not found.")
+                return
+
+            if comment.manual_reply_sent:
+                await query.edit_message_text("⚠️ This escalation has already been resolved.")
+                return
+
+            comment.manual_reply_sent = True
+            comment.manual_reply_text = f"[{action.upper()}D via Telegram]"
+            db.commit()
+
+            log_audit(
+                db=db,
+                actor="telegram",
+                action=f"comment.{action}",
+                resource_type="comment",
+                resource_id=str(comment.id),
+            )
+
+            if action == "resolve":
+                await query.edit_message_text(
+                    f"✅ Escalation resolved.\n\n"
+                    f"Comment ID: {comment.id}"
+                )
+            else:
+                await query.edit_message_text(
+                    f"🚫 Escalation ignored.\n\n"
+                    f"Comment ID: {comment.id}"
+                )
 
         else:
             await query.edit_message_text("⚠️ Unknown action.")

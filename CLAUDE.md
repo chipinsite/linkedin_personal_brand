@@ -1079,6 +1079,7 @@ All AI generated content must adhere to:
 | 5.0 | 2026-02-09 | AI content generation engine with content pyramid, weighted format/tone selection, LLM client mock mode, and guardrail validation |
 | 5.1 | 2026-02-09 | Enhanced Telegram approval workflow with inline keyboards, /preview and /help commands, callback query handlers, and short-ID draft lookup |
 | 5.2 | 2026-02-09 | LinkedIn read integration with post metrics fetching, mock metrics support, engagement service polling, and metrics endpoint |
+| 5.3 | 2026-02-09 | Comment handling with LLM-powered auto-replies, MEDIA_INQUIRY triage, Telegram escalation notifications, and resolution endpoints |
 
 ---
 
