@@ -3798,3 +3798,108 @@ Backend now has a complete AI content generation engine with:
 3. Proceed to Phase 2: Telegram Approval Workflow (v5.1)
 
 ---
+## [2026-02-09 05:50 SAST] Build: v5.1 Telegram Approval Workflow Enhancement
+
+### Build Phase
+Post Build
+
+### Goal
+Enhance the Telegram bot with improved draft approval notifications, inline keyboard buttons, and integration with the new content engine from v5.0.
+
+### Context
+Phase 2 of 4-phase implementation plan. Telegram bot exists with basic /pending, /approve, /reject commands. Need to enhance with better formatting, inline keyboards, and content engine integration.
+
+### Scope
+In scope:
+- Enhanced draft approval notification format matching CLAUDE.md section 6.2
+- Inline keyboard buttons for Approve/Reject actions
+- /preview command for viewing full draft content
+- /help command for showing available commands
+- Short-ID draft lookup for callback data (8-char UUID prefix)
+- Update telegram_service.py to support inline keyboards
+- Tests for enhanced bot commands and notification flow
+
+Out of scope:
+- LinkedIn API integration (Phase 3)
+- Comment handling automation (Phase 4)
+- WhatsApp integration
+- /edit command (deferred - manual editing via Telegram not practical)
+
+### Actual Changes
+1. Enhanced telegram_service.py
+   - Added _is_telegram_configured() helper for credential validation
+   - Added send_telegram_message_with_keyboard() for inline buttons
+   - Added format_draft_notification() for CLAUDE.md compliant formatting
+   - Added build_draft_keyboard() for inline keyboard generation
+   - Added send_draft_approval_notification() combining formatting and keyboard
+
+2. Enhanced telegram/bot.py
+   - Added /preview <id> command
+   - Added /help command (alias for /start)
+   - Added callback query handler (handle_callback) for inline buttons
+   - Added _get_draft_by_id() helper for full UUID and short-ID lookup
+   - Added audit logging for approve/reject actions via Telegram
+   - Improved message formatting with emojis
+
+3. Updated workflow.py
+   - Changed send_approval_notification() to use send_draft_approval_notification()
+
+4. Created test_v16_telegram_workflow.py
+   - DraftNotificationFormattingTest (3 tests)
+   - InlineKeyboardGenerationTest (1 test)
+   - TelegramMessageSendingTest (3 tests)
+   - DraftApprovalNotificationTest (1 test)
+   - BotCommandHelpersTest (3 tests)
+   - WorkflowIntegrationTest (1 test)
+
+### Files Touched
+- Backend/app/services/telegram_service.py (modified)
+- Backend/app/telegram/bot.py (modified)
+- Backend/app/services/workflow.py (modified)
+- Backend/tests/test_v16_telegram_workflow.py (new)
+- Frontend/src/components/layout/Sidebar.jsx (modified - version to v5.1)
+- CLAUDE.md (modified - version history)
+
+### Reasoning
+Inline keyboards improve UX by removing need to copy/paste draft IDs. Better notification format matches the spec and provides clear action guidance. Integration with content engine ensures consistent notification behavior.
+
+### Assumptions
+- python-telegram-bot library supports inline keyboards
+- Telegram API allows button callbacks
+- Bot token remains same; no new credentials needed
+
+### Risks and Tradeoffs
+- Risk: Inline keyboards require webhook or polling mode
+- Mitigation: Current polling mode supports callbacks
+- Risk: Callback data has 64 byte limit
+- Mitigation: Use short action:id format
+
+### Tests and Validation
+Commands to run:
+- cd Backend && ./.venv/bin/python -m pytest tests/ -v
+- cd Frontend && npm test -- --run
+- ./scripts/v1_smoke.sh
+
+### Result
+- Backend tests: 119 passed
+- Frontend tests: 51 passed
+- Frontend build: passed
+- Unified smoke: passed
+
+### Confidence Rating
+High - All tests pass, inline keyboard functionality verified with mocked httpx, bot commands and callback handlers implemented with proper authorization checks and audit logging.
+
+### Known Gaps or Uncertainty
+- /edit command deferred - inline editing via Telegram not practical for longer posts
+- Telegram webhook mode not tested (using polling mode for bot)
+- Real Telegram API calls require valid bot token and chat ID (mocked in tests)
+
+### Next Steps
+1. Enhance telegram_service.py
+2. Add inline keyboard support
+3. Update bot commands
+4. Add tests
+5. Run validation
+6. Commit
+
+---

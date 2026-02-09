@@ -1077,6 +1077,7 @@ All AI generated content must adhere to:
 | 4.8 | 2026-02-09 | Accessibility: skip-to-content link, ARIA landmarks, role attributes on shared components, focus indicators, and 7 new a11y tests |
 | 4.9 | 2026-02-09 | JWT authentication module with user registration, login, logout, token refresh, and hybrid API-key/JWT auth support |
 | 5.0 | 2026-02-09 | AI content generation engine with content pyramid, weighted format/tone selection, LLM client mock mode, and guardrail validation |
+| 5.1 | 2026-02-09 | Enhanced Telegram approval workflow with inline keyboards, /preview and /help commands, callback query handlers, and short-ID draft lookup |
 
 ---
 

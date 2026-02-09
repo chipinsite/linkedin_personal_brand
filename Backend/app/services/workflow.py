@@ -14,7 +14,7 @@ from .guardrails import validate_post
 from .learning import get_effective_weight_maps
 from .llm import generate_linkedin_post
 from .research_ingestion import select_research_context
-from .telegram_service import send_telegram_message
+from .telegram_service import send_draft_approval_notification, send_telegram_message
 from .time_utils import random_schedule_for_day
 
 
@@ -91,26 +91,18 @@ def create_system_draft(db: Session) -> Draft:
 
 
 def send_approval_notification(db: Session, draft: Draft) -> bool:
-    sources_preview = ""
-    if draft.source_citations:
-        try:
-            items = json.loads(draft.source_citations)
-            if isinstance(items, list) and items:
-                lines = [f"- {item.get('source')}: {item.get('url')}" for item in items[:3]]
-                sources_preview = "\nSources:\n" + "\n".join(lines)
-        except Exception:
-            sources_preview = ""
+    """Send draft approval notification via Telegram.
 
-    text = (
-        "Draft Ready for Approval\n\n"
-        f"Theme: {draft.pillar_theme} > {draft.sub_theme}\n"
-        f"Format: {draft.format.value}\n"
-        f"Tone: {draft.tone.value}{sources_preview}\n\n"
-        f"{draft.content_body}\n\n"
-        "Approve: POST /drafts/{id}/approve\n"
-        "Reject: POST /drafts/{id}/reject"
-    ).format(id=draft.id)
-    return send_telegram_message(db=db, text=text, event_type="DRAFT_APPROVAL")
+    Uses the enhanced notification format with inline keyboard buttons.
+
+    Args:
+        db: Database session
+        draft: Draft to notify about
+
+    Returns:
+        True if notification was sent successfully
+    """
+    return send_draft_approval_notification(db=db, draft=draft)
 
 
 def approve_draft_and_schedule(db: Session, draft: Draft, scheduled_time: datetime | None) -> PublishedPost:
