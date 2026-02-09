@@ -174,3 +174,59 @@ class RefreshRequest(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+# Content Engine schemas
+
+class ContentGenerateRequest(BaseModel):
+    """Request to generate a new draft via content engine."""
+
+    research_context: str | None = None
+    pillar_override: str | None = None
+    sub_theme_override: str | None = None
+    format_override: PostFormat | None = None
+    tone_override: PostTone | None = None
+
+
+class ContentGenerateResponse(BaseModel):
+    """Response from content generation."""
+
+    success: bool
+    draft: DraftRead | None
+    attempts: int
+    requires_manual: bool
+    error_message: str | None
+    guardrail_violations: list[str] | None
+
+
+class PostAngleRead(BaseModel):
+    """Post angle representation."""
+
+    id: str
+    name: str
+    description: str
+
+
+class SubThemeCoverage(BaseModel):
+    """Coverage stats for a sub-theme."""
+
+    pillar_theme: str
+    sub_theme: str
+    post_count_30_days: int
+    last_posted_at: datetime | None
+
+
+class ContentPyramidRead(BaseModel):
+    """Full content pyramid structure with coverage stats."""
+
+    pillars: list[str]
+    sub_themes: dict[str, list[str]]
+    post_angles: list[PostAngleRead]
+    coverage: list[SubThemeCoverage]
+
+
+class ContentWeightsRead(BaseModel):
+    """Current format and tone weights."""
+
+    format_weights: dict[str, float]
+    tone_weights: dict[str, float]

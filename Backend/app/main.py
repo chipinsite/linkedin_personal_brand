@@ -7,7 +7,7 @@ from .config import settings
 from .db import Base, engine
 from .logging_config import configure_logging
 from .middleware.request_id import RequestIdMiddleware
-from .routes import admin, auth, comments, drafts, engagement, health, learning, posts, reports, sources
+from .routes import admin, auth, comments, content, drafts, engagement, health, learning, posts, reports, sources
 from .services.db_check import SchemaError, startup_schema_check
 
 # Configure logging before anything else uses it.
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(content.router)
     app.include_router(drafts.router)
     app.include_router(posts.router)
     app.include_router(comments.router)

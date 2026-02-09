@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     llm_provider: str = "claude"
     llm_api_key: str | None = None
     llm_model: str = "claude-3-5-sonnet-latest"
+    llm_mock_mode: bool = False  # Force mock mode even if API key is set
     anthropic_base_url: str = "https://api.anthropic.com/v1/messages"
     linkedin_api_mode: str = "manual"
     linkedin_api_token: str | None = None

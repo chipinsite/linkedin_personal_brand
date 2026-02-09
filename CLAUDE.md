@@ -1075,6 +1075,8 @@ All AI generated content must adhere to:
 | 4.6 | 2026-02-09 | Frontend component decomposition: shared loading/error/empty states, OperationalAlerts extraction, and expanded test coverage |
 | 4.7 | 2026-02-09 | Structured JSON logging, request ID tracing middleware, deploy profile separation, and aggregated /health/full endpoint |
 | 4.8 | 2026-02-09 | Accessibility: skip-to-content link, ARIA landmarks, role attributes on shared components, focus indicators, and 7 new a11y tests |
+| 4.9 | 2026-02-09 | JWT authentication module with user registration, login, logout, token refresh, and hybrid API-key/JWT auth support |
+| 5.0 | 2026-02-09 | AI content generation engine with content pyramid, weighted format/tone selection, LLM client mock mode, and guardrail validation |
 
 ---
 
