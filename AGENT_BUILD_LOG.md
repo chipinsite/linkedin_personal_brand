@@ -4249,3 +4249,125 @@ Commands to run:
 8. Commit
 
 ---
+
+---
+## [2026-02-09 14:00 SAST] Build: v5.4 Railway Deployment Infrastructure
+
+### Build Phase
+Pre Build
+
+### Goal
+Create all deployment files needed to deploy the app on Railway with managed PostgreSQL and Redis.
+
+### Context
+User request: "take control and set this up for me" — referring to production deployment on Railway.
+
+### Scope
+In scope:
+- Backend Dockerfile (Python 3.12 + FastAPI + Celery)
+- Frontend Dockerfile (Node build + nginx static serve)
+- Railway configuration (railway.toml, nixpacks.toml)
+- Production docker-compose.prod.yml
+- Production .env template
+- Deployment documentation in README
+- Nginx config for frontend SPA routing
+
+Out of scope:
+- Custom domain setup (user does this in Railway dashboard)
+- CI/CD pipeline changes
+- External API key provisioning (user creates accounts)
+
+### Planned Changes
+1. Backend/Dockerfile — multi-stage Python build
+2. Frontend/Dockerfile — Node build + nginx serve
+3. Frontend/nginx.conf — SPA routing config
+4. railway.toml — multi-service Railway deployment config
+5. docker-compose.prod.yml — full production stack
+6. .env.production.template — all production env vars documented
+7. README.md — deployment section with Railway walkthrough
+
+### Assumptions
+- Railway is the target platform
+- Python 3.12 is the target runtime (Railway + Docker)
+- PostgreSQL and Redis are Railway add-ons
+- Frontend is served as static files via nginx
+- Single-user deployment, no horizontal scaling needed
+
+### Risks and Tradeoffs
+- Railway free tier may not be sufficient for 4 services; Pro plan (~$20/mo) recommended
+- Celery beat must run as single instance to avoid duplicate task scheduling
+- SQLite fallback logic should be bypassed in prod (DATABASE_URL always set)
+
+### Actual Changes Made (Post Build only)
+1. `Backend/Dockerfile` — multi-stage Python 3.12 build with SERVICE-based entrypoint
+2. `Backend/docker-entrypoint.sh` — migration-first startup script routing to uvicorn/celery worker/celery beat
+3. `Frontend/Dockerfile` — Node 20 build stage + nginx alpine serve stage
+4. `Frontend/nginx.conf` — SPA routing, gzip, security headers, long-lived asset cache
+5. `docker-compose.prod.yml` — full production stack with health checks and dependency ordering
+6. `.env.production.template` — all production env vars documented with CHANGE_ME markers
+7. `railway.toml` — Railway platform configuration
+8. `README.md` — added complete Railway and Docker Compose deployment guides
+9. `.gitignore` — added production secrets, local DB, Docker volume exclusions
+10. `Frontend/src/components/layout/Sidebar.jsx` — version marker set to v5.4
+11. `CLAUDE.md` — version table entry and section 58 added
+
+### Files Touched
+- /Users/sphiwemawhayi/Personal Brand/Backend/Dockerfile (new)
+- /Users/sphiwemawhayi/Personal Brand/Backend/docker-entrypoint.sh (new)
+- /Users/sphiwemawhayi/Personal Brand/Frontend/Dockerfile (new)
+- /Users/sphiwemawhayi/Personal Brand/Frontend/nginx.conf (new)
+- /Users/sphiwemawhayi/Personal Brand/docker-compose.prod.yml (new)
+- /Users/sphiwemawhayi/Personal Brand/.env.production.template (new)
+- /Users/sphiwemawhayi/Personal Brand/railway.toml (new)
+- /Users/sphiwemawhayi/Personal Brand/README.md (modified)
+- /Users/sphiwemawhayi/Personal Brand/.gitignore (modified)
+- /Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx (modified)
+- /Users/sphiwemawhayi/Personal Brand/CLAUDE.md (modified)
+
+### Reasoning
+Railway selected as target because: managed Postgres/Redis included, simple multi-service deploy from single repo, auto HTTPS, ~$20/mo cost matches spec budget. Docker Compose provided as self-hosted alternative. Single Dockerfile with SERVICE env var avoids duplicate image definitions.
+
+### Assumptions
+- Railway is the primary deployment target
+- Python 3.12 (not 3.14) for Docker compatibility with production wheels
+- nginx is the frontend static server (lighter than Node process)
+- Single Celery beat instance is acceptable (no HA requirement)
+
+### Risks and Tradeoffs
+- Celery beat runs as single instance (no leader election) — acceptable for single-user
+- Docker images not locally validated (Docker not installed) — will validate on first deploy
+- Railway Pro plan required for 4 services (~$20/mo)
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` → 160 passed
+- `cd Frontend && npm test -- --run` → 51 passed
+- `cd Frontend && npm run build` → production build passed
+
+Manual checks:
+- Dockerfile syntax reviewed
+- docker-compose.prod.yml service dependency graph verified
+- .env.production.template completeness verified against app/config.py
+
+Result:
+All existing tests pass. No regressions. New files are deployment infrastructure only.
+
+### Result
+Project now has complete deployment infrastructure for Railway (primary) and Docker Compose (self-hosted). README contains step-by-step deployment guide.
+
+### Confidence Rating
+8/10 — Dockerfiles follow standard FastAPI/React patterns. Cannot verify image builds locally (no Docker), but structure is well-established. Railway config is straightforward. High confidence in first-deploy success with minor adjustments possible for Railway-specific port injection.
+
+### Known Gaps or Uncertainty
+- Docker images not built locally — first real build happens on Railway
+- Railway may inject PORT differently than expected — may need `$PORT` in uvicorn command
+- Celery worker concurrency of 2 may need tuning based on Railway container memory
+
+### Next Steps
+1. Push to GitHub
+2. Create Railway account and project
+3. Add PostgreSQL + Redis add-ons
+4. Create 4 services (api, worker, beat, frontend)
+5. Set environment variables
+6. Deploy and verify /health endpoint
+7. Register first user account

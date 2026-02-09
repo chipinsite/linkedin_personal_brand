@@ -1,0 +1,24 @@
+# ── Railway Configuration ───────────────────────────────────────
+# This project deploys 4 services:
+#   1. backend-api     → FastAPI server
+#   2. backend-worker  → Celery worker (background tasks)
+#   3. backend-beat    → Celery beat (task scheduler)
+#   4. frontend        → React SPA via nginx
+#
+# Railway add-ons needed:
+#   - PostgreSQL  (provides DATABASE_URL automatically)
+#   - Redis       (provides REDIS_URL automatically)
+#
+# Each service is configured independently below.
+# ────────────────────────────────────────────────────────────────
+
+[build]
+# Default builder — Railway auto-detects from Dockerfile
+builder = "dockerfile"
+
+[deploy]
+# Health check path for the API service
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

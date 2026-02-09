@@ -4,10 +4,10 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 ## Version status
 
-- Backend through `v0.9` implemented and tested.
-- Frontend operations console implemented.
-- `v4.8` baseline smoke test is available and passing (45 backend tests + 51 frontend tests + frontend build).
-- Single-user operational mode is complete and release-ready.
+- Current version: `v5.4` — deployment infrastructure added.
+- Backend through `v5.3` implemented and tested (160 tests).
+- Frontend operations console implemented (51 tests).
+- Single-user operational mode is complete and deployment-ready.
 
 ## Run locally
 
@@ -136,6 +136,188 @@ At `http://127.0.0.1:5173`:
 - test `Kill ON/OFF` and `Posting ON/OFF`
 - use `Settings` to inspect `Algorithm Alignment` and recent `Audit Trail` entries
 - use `Audit filter` in `Settings` to narrow entries by action/actor/resource
+
+---
+
+## Deploy to Production
+
+### Option A: Railway (Recommended)
+
+Railway is the simplest path to production. It provides managed PostgreSQL, Redis, and automatic HTTPS.
+
+#### Prerequisites
+
+Before deploying, create accounts and get these credentials:
+
+| Credential | Where to get it |
+|---|---|
+| **Claude API key** | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| **Telegram bot token** | Message [@BotFather](https://t.me/BotFather) on Telegram → `/newbot` |
+| **JWT secret** | Run `openssl rand -hex 32` in your terminal |
+
+#### Step-by-step Railway deployment
+
+**1. Create Railway project**
+
+Go to [railway.com](https://railway.com), sign up (GitHub login works), and create a new project.
+
+**2. Connect your GitHub repo**
+
+Click "Deploy from GitHub repo" and select this repository.
+
+**3. Add PostgreSQL**
+
+Click "New" → "Database" → "PostgreSQL". Railway auto-injects `DATABASE_URL`.
+
+**4. Add Redis**
+
+Click "New" → "Database" → "Redis". Railway auto-injects `REDIS_URL`.
+
+**5. Create 4 services from the same repo**
+
+You need 4 services all pointing to this repo. For each one, click "New" → "GitHub Repo" → select this repo:
+
+| Service Name | Root Directory | Dockerfile Path | SERVICE env var |
+|---|---|---|---|
+| `backend-api` | `Backend` | `Backend/Dockerfile` | `api` |
+| `backend-worker` | `Backend` | `Backend/Dockerfile` | `worker` |
+| `backend-beat` | `Backend` | `Backend/Dockerfile` | `beat` |
+| `frontend` | `Frontend` | `Frontend/Dockerfile` | _(not used)_ |
+
+**6. Set environment variables**
+
+In each **backend** service (api, worker, beat), add these variables:
+
+```
+SERVICE=api              # (or worker, or beat — per service)
+APP_ENV=prod
+JWT_SECRET_KEY=<your-generated-secret>
+AUTH_MODE=jwt
+LLM_API_KEY=<your-claude-api-key>
+LLM_PROVIDER=claude
+LLM_MODEL=claude-sonnet-4-20250514
+LLM_MOCK_MODE=false
+TELEGRAM_BOT_TOKEN=<your-bot-token>
+TELEGRAM_CHAT_ID=<your-chat-id>
+TIMEZONE=Africa/Johannesburg
+LOG_JSON=true
+LOG_LEVEL=INFO
+CORS_ALLOWED_ORIGINS=https://<your-frontend>.railway.app
+```
+
+Railway auto-provides `DATABASE_URL` and `REDIS_URL` — link each backend service to your Postgres and Redis add-ons via the "Variables" → "Reference" feature.
+
+For the **frontend** service, set this build arg:
+
+```
+VITE_API_BASE_URL=https://<your-backend-api>.railway.app
+```
+
+**7. Set health check**
+
+For `backend-api`, go to Settings → Health Check → set path to `/health`.
+
+**8. Deploy**
+
+Railway builds and deploys automatically on push. First deploy takes ~3 minutes.
+
+**9. Create your user account**
+
+```bash
+curl -X POST https://<your-backend-api>.railway.app/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","username":"yourname","password":"your-password"}'
+```
+
+**10. Open your app**
+
+Visit `https://<your-frontend>.railway.app` and log in.
+
+---
+
+### Option B: Docker Compose (Self-hosted)
+
+For deployment on any VPS (DigitalOcean, Hetzner, AWS, etc):
+
+```bash
+# 1. Clone the repo
+git clone <your-repo-url>
+cd "Personal Brand"
+
+# 2. Configure secrets
+cp .env.production.template .env
+# Edit .env and fill in all CHANGE_ME values
+
+# 3. Build and start everything
+docker compose -f docker-compose.prod.yml up -d
+
+# 4. Check it's running
+docker compose -f docker-compose.prod.yml ps
+curl http://localhost:8000/health
+
+# 5. Create your user
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","username":"yourname","password":"your-password"}'
+```
+
+Frontend: `http://localhost:3000`
+Backend API: `http://localhost:8000`
+API docs: `http://localhost:8000/docs`
+
+For production, put nginx or Caddy in front with HTTPS (Let's Encrypt).
+
+---
+
+### Deployment files reference
+
+| File | Purpose |
+|---|---|
+| `Backend/Dockerfile` | Backend image (API, worker, beat via `SERVICE` env var) |
+| `Backend/docker-entrypoint.sh` | Startup script: runs migrations then starts the correct service |
+| `Frontend/Dockerfile` | Frontend image (Node build → nginx serve) |
+| `Frontend/nginx.conf` | SPA routing config for nginx |
+| `docker-compose.prod.yml` | Full production stack (Postgres + Redis + 3 backend + frontend) |
+| `.env.production.template` | All production env vars documented |
+| `railway.toml` | Railway platform configuration |
+
+---
+
+### Production architecture
+
+```
+                    ┌──────────────────┐
+                    │   Your Browser   │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+     ┌────────▼────────┐    │    ┌─────────▼─────────┐
+     │    Frontend      │    │    │   Backend API     │
+     │    (nginx)       │    │    │   (FastAPI)       │
+     │    port 80/443   │    │    │   port 8000       │
+     └─────────────────┘    │    └─────────┬─────────┘
+                            │              │
+                            │    ┌─────────▼─────────┐
+                            │    │   PostgreSQL       │
+                            │    │   (data store)     │
+                            │    └───────────────────┘
+                            │              │
+              ┌─────────────┼──────────────┤
+              │             │              │
+     ┌────────▼────────┐   │   ┌──────────▼──────────┐
+     │  Celery Worker   │   │   │  Celery Beat        │
+     │  (background     │   │   │  (scheduler)        │
+     │   tasks)         │   │   └─────────────────────┘
+     └────────┬────────┘   │
+              │            │
+     ┌────────▼────────────▼───┐
+     │       Redis             │
+     │       (task queue)      │
+     └─────────────────────────┘
+```
+
+---
 
 ## Alignment rule
 

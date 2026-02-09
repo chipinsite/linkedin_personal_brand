@@ -1080,6 +1080,7 @@ All AI generated content must adhere to:
 | 5.1 | 2026-02-09 | Enhanced Telegram approval workflow with inline keyboards, /preview and /help commands, callback query handlers, and short-ID draft lookup |
 | 5.2 | 2026-02-09 | LinkedIn read integration with post metrics fetching, mock metrics support, engagement service polling, and metrics endpoint |
 | 5.3 | 2026-02-09 | Comment handling with LLM-powered auto-replies, MEDIA_INQUIRY triage, Telegram escalation notifications, and resolution endpoints |
+| 5.4 | 2026-02-09 | Railway deployment infrastructure: Backend/Frontend Dockerfiles, docker-compose.prod.yml, production env template, nginx SPA config, and deployment docs |
 
 ---
 
@@ -3165,3 +3166,56 @@ Result:
 - Form label-to-input associations (htmlFor/id) remain to be addressed in a future pass across all views.
 - Semantic list restructuring for comments/drafts/posts deferred to avoid layout-sensitive changes.
 - Heading hierarchy (h1/h2/h3) across views could be rationalized in a future pass.
+
+---
+
+## 58. v5.4 Railway Deployment Infrastructure (2026-02-09)
+
+### 58.1 v5.4 Scope
+
+v5.4 adds full production deployment infrastructure targeting Railway as the primary platform:
+
+- Backend Dockerfile with multi-service support (API, worker, beat via `SERVICE` env var)
+- Frontend Dockerfile with Node build stage and nginx SPA serving
+- Production docker-compose with health checks and dependency ordering
+- Production environment template with all secrets documented
+- Railway platform configuration
+- Comprehensive deployment documentation in README
+
+### 58.2 v5.4 Implementation Added
+
+- Backend Docker infrastructure:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/Dockerfile` — multi-stage Python 3.12 build
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/docker-entrypoint.sh` — runs migrations then starts SERVICE (api/worker/beat)
+- Frontend Docker infrastructure:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/Dockerfile` — Node 20 build + nginx alpine serve
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/nginx.conf` — SPA routing, gzip, security headers, asset caching
+- Production orchestration:
+  - `/Users/sphiwemawhayi/Personal Brand/docker-compose.prod.yml` — full stack (Postgres 16 + Redis 7 + 3 backend services + frontend)
+  - `/Users/sphiwemawhayi/Personal Brand/.env.production.template` — all production env vars with defaults and docs
+  - `/Users/sphiwemawhayi/Personal Brand/railway.toml` — Railway platform configuration
+- Documentation and hygiene:
+  - `/Users/sphiwemawhayi/Personal Brand/README.md` — full Railway and Docker Compose deployment guides
+  - `/Users/sphiwemawhayi/Personal Brand/.gitignore` — production secrets, local DB, Docker volumes
+
+### 58.3 v5.4 Validation Status
+
+Executed on 2026-02-09:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+
+Result:
+
+- backend tests passed (`160/160`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+- Docker not available locally for image build validation; Dockerfiles follow standard patterns and will be validated on first Railway deploy
+
+### 58.4 Remaining Constraints
+
+- Docker images have not been built locally (Docker not installed in this environment); first build will occur on Railway.
+- Custom domain and HTTPS certificate setup is done in the Railway dashboard, not automated.
+- Telegram bot webhook mode is not configured; uses polling.
+- Railway free tier may not support 4 services; Pro plan ($20/mo) recommended.
