@@ -28,18 +28,19 @@ FROM nginx:alpine AS serve
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our SPA-aware nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy our SPA-aware nginx config template (uses $PORT envsubst)
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Also keep static nginx.conf for docker-compose (listens on 80)
+COPY nginx.conf /etc/nginx/nginx-static.conf
 
 # Copy built assets from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Railway injects $PORT; nginx listens on 80 by default.
-# We use envsubst to dynamically set the port at runtime.
-EXPOSE 80
+# Railway injects $PORT at runtime; default to 80 for docker-compose
+ENV PORT=80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -q --spider http://localhost:80/ || exit 1
+EXPOSE ${PORT}
 
-CMD ["nginx", "-g", "daemon off;"]
+# Use envsubst to replace $PORT in the nginx template at startup
+CMD ["/bin/sh", "-c", "envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

@@ -18,9 +18,9 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-post_format_enum = sa.Enum("TEXT", "IMAGE", "CAROUSEL", name="postformat")
-post_tone_enum = sa.Enum("EDUCATIONAL", "OPINIONATED", "DIRECT", "EXPLORATORY", name="posttone")
-draft_status_enum = sa.Enum("PENDING", "APPROVED", "REJECTED", "EXPIRED", name="draftstatus")
+post_format_enum = sa.Enum("TEXT", "IMAGE", "CAROUSEL", name="postformat", create_type=False)
+post_tone_enum = sa.Enum("EDUCATIONAL", "OPINIONATED", "DIRECT", "EXPLORATORY", name="posttone", create_type=False)
+draft_status_enum = sa.Enum("PENDING", "APPROVED", "REJECTED", "EXPIRED", name="draftstatus", create_type=False)
 
 
 def upgrade() -> None:
