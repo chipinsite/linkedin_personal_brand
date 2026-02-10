@@ -22,6 +22,7 @@ from ..schemas import AuditLogRead
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
 from ..services.config_state import get_or_create_app_config
+from ..services.webhook_service import is_webhook_configured, send_test_webhook
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -136,3 +137,65 @@ def export_state(db: Session = Depends(get_db), _auth: None = Depends(require_re
         "engagement_metrics": _serialize_rows(db.query(EngagementMetric).order_by(EngagementMetric.collected_at.desc()).all()),
         "notifications": _serialize_rows(db.query(NotificationLog).order_by(NotificationLog.created_at.desc()).all()),
     }
+
+
+@router.get("/webhook-status")
+def webhook_status(db: Session = Depends(get_db), _auth: None = Depends(require_read_access)):
+    """Show webhook configuration status and recent delivery stats."""
+    configured = is_webhook_configured()
+
+    # Query recent webhook deliveries (last 24 hours)
+    from datetime import timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    recent = (
+        db.query(NotificationLog)
+        .filter(NotificationLog.channel == "webhook")
+        .filter(NotificationLog.created_at >= cutoff)
+        .all()
+    )
+    success_count = sum(1 for r in recent if r.success)
+    failed_count = sum(1 for r in recent if not r.success)
+
+    # Last delivery
+    last = (
+        db.query(NotificationLog)
+        .filter(NotificationLog.channel == "webhook")
+        .order_by(NotificationLog.created_at.desc())
+        .first()
+    )
+    last_delivery = None
+    if last:
+        last_delivery = {
+            "event_type": last.event_type,
+            "success": last.success,
+            "created_at": last.created_at.isoformat() if last.created_at else None,
+            "error_message": last.error_message,
+        }
+
+    return {
+        "configured": configured,
+        "url_set": configured,
+        "last_delivery": last_delivery,
+        "deliveries_24h": {
+            "success": success_count,
+            "failed": failed_count,
+        },
+    }
+
+
+@router.post("/webhook-test")
+def webhook_test(
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_write_access),
+):
+    """Send a test payload to verify Zapier webhook connectivity."""
+    result = send_test_webhook()
+    log_audit(
+        db=db,
+        actor="api",
+        action="admin.webhook_test",
+        resource_type="webhook",
+        detail=result,
+    )
+    return result

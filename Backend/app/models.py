@@ -121,6 +121,8 @@ class AppConfig(Base):
     posting_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     comment_replies_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     kill_switch: Mapped[bool] = mapped_column(Boolean, default=False)
+    zapier_webhook_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    zapier_webhook_secret: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
 class SourceMaterial(Base):

@@ -16,6 +16,7 @@ from .llm import generate_linkedin_post
 from .research_ingestion import select_research_context
 from .telegram_service import send_draft_approval_notification, send_telegram_message
 from .time_utils import random_schedule_for_day
+from .webhook_service import send_webhook
 
 
 def _posting_frequency_guard(db: Session) -> None:
@@ -146,6 +147,22 @@ def publish_due_manual_posts(db: Session) -> int:
             f"{post.content_body}"
         )
         send_telegram_message(db=db, text=message, event_type="MANUAL_PUBLISH_REMINDER")
+
+        # Fire webhook to Zapier — this is the primary integration point.
+        # Zapier receives the post content and publishes it to LinkedIn.
+        draft = post.draft
+        send_webhook(
+            db=db,
+            event="post.publish_ready",
+            data={
+                "post_id": str(post.id),
+                "content": post.content_body,
+                "format": post.format.value if post.format else "TEXT",
+                "pillar_theme": draft.pillar_theme if draft else "",
+                "sub_theme": draft.sub_theme if draft else "",
+            },
+        )
+
         post.manual_publish_notified_at = now
     db.commit()
 

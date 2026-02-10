@@ -10,6 +10,7 @@ from ..schemas import ManualPublishConfirm, PostMetricsUpdate, PublishedPostRead
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
 from ..services.learning import record_post_metrics
+from ..services.webhook_service import send_webhook
 from ..services.workflow import publish_due_manual_posts, send_golden_hour_engagement_prompt
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -72,6 +73,19 @@ def confirm_manual_publish(
     db.commit()
     db.refresh(post)
     send_golden_hour_engagement_prompt(db=db, post=post)
+
+    # Fire webhook after publication confirmation
+    send_webhook(
+        db=db,
+        event="post.published",
+        data={
+            "post_id": str(post.id),
+            "content": post.content_body,
+            "linkedin_post_url": payload.linkedin_post_url,
+            "format": post.format.value if post.format else "TEXT",
+        },
+    )
+
     log_audit(
         db=db,
         actor="api",

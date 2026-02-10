@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     linkedin_mock_comments_json: str = ""
     linkedin_mock_metrics_json: str = ""
     research_feed_urls: str = ""
+    zapier_webhook_url: str | None = None
+    zapier_webhook_secret: str | None = None
     cors_allowed_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
 
 

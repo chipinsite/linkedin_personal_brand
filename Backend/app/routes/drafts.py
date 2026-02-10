@@ -8,6 +8,7 @@ from ..models import Draft, DraftStatus
 from ..schemas import DraftApprove, DraftCreate, DraftRead, DraftReject
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
+from ..services.webhook_service import send_webhook
 from ..services.workflow import approve_draft_and_schedule, create_system_draft
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
@@ -70,6 +71,21 @@ def approve_draft(
 
     approve_draft_and_schedule(db=db, draft=draft, scheduled_time=payload.scheduled_time)
     db.refresh(draft)
+
+    # Fire webhook on draft approval (informational — could trigger other Zaps)
+    send_webhook(
+        db=db,
+        event="draft.approved",
+        data={
+            "draft_id": str(draft.id),
+            "content": draft.content_body,
+            "format": draft.format.value if draft.format else "TEXT",
+            "tone": draft.tone.value if draft.tone else "EDUCATIONAL",
+            "pillar_theme": draft.pillar_theme,
+            "sub_theme": draft.sub_theme,
+        },
+    )
+
     log_audit(
         db=db,
         actor="api",
