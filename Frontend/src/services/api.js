@@ -276,4 +276,14 @@ export const api = {
   killSwitchOff: () => request('/admin/kill-switch/off', { method: 'POST' }),
   postingOn: () => request('/admin/posting/on', { method: 'POST' }),
   postingOff: () => request('/admin/posting/off', { method: 'POST' }),
+  setPipelineMode: (mode) => request(`/admin/pipeline-mode/${mode}`, { method: 'POST' }),
+  pipelineStatus: () => request('/admin/pipeline-status'),
+
+  // Pipeline endpoints
+  pipelineOverview: () => request('/pipeline/overview'),
+  pipelineItems: (status) => request(`/pipeline/items${status ? `?status=${status}` : ''}`),
+  pipelineItem: (id) => request(`/pipeline/items/${id}`),
+  pipelineTransition: (id, toStatus) => request(`/pipeline/items/${id}/transition`, { method: 'POST', body: JSON.stringify({ to_status: toStatus }) }),
+  pipelineHealth: () => request('/pipeline/health'),
+  runAgent: (agent) => request(`/pipeline/run/${agent}`, { method: 'POST' }),
 };

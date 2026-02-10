@@ -71,11 +71,21 @@ function createApiState(overrides = {}) {
       escalation_follower_threshold: 10000,
       linkedin_api_mode: 'manual',
       kill_switch: false,
+      pipeline_mode: 'LEGACY',
       ...(overrides.adminConfig ?? {}),
     },
     alignment: overrides.alignment ?? { enforced: { engagement_bait: 'blocked' } },
     auditLogs: overrides.auditLogs ?? [],
     engagementStatus: { monitored_total: 0, active_total: 0, due_total: 0 },
+    pipelineOverview: overrides.pipelineOverview ?? {
+      total: 0, claimed: 0,
+      status_counts: { backlog: 0, todo: 0, writing: 0, review: 0, ready_to_publish: 0, published: 0, amplified: 0, done: 0 },
+    },
+    pipelineItems: overrides.pipelineItems ?? [],
+    pipelineHealth: overrides.pipelineHealth ?? {
+      health_status: 'healthy', overview: { total: 0, claimed: 0, status_counts: {} },
+      stale_claims: 0, errored_items: 0, stuck_items: 0, checked_at: '2026-02-10T12:00:00Z',
+    },
     baseDraft,
   };
 }
@@ -220,6 +230,24 @@ function setupMockApi(overrides = {}) {
       state.adminConfig = { ...state.adminConfig, posting_enabled: false };
       return mockJson({ posting_enabled: false });
     }
+    if (method === 'POST' && path.startsWith('/admin/pipeline-mode/')) {
+      const mode = path.split('/').pop().toUpperCase();
+      state.adminConfig = { ...state.adminConfig, pipeline_mode: mode };
+      return mockJson({ pipeline_mode: mode, previous_mode: 'LEGACY' });
+    }
+    if (method === 'GET' && path === '/admin/pipeline-status') {
+      const mode = state.adminConfig.pipeline_mode || 'LEGACY';
+      return mockJson({
+        pipeline_mode: mode,
+        kill_switch: state.adminConfig.kill_switch,
+        posting_enabled: state.adminConfig.posting_enabled,
+        legacy_active: mode === 'LEGACY' || mode === 'SHADOW',
+        v6_active: mode === 'V6' || mode === 'SHADOW',
+        shadow_mode: mode === 'SHADOW',
+        v6_publishing_enabled: mode === 'V6',
+        all_disabled: mode === 'DISABLED',
+      });
+    }
     if (method === 'GET' && path === '/admin/algorithm-alignment') return mockJson(state.alignment);
     if (method === 'GET' && path === '/admin/audit-logs') return mockJson(state.auditLogs);
     if (method === 'GET' && path === '/admin/export-state') {
@@ -227,6 +255,15 @@ function setupMockApi(overrides = {}) {
     }
     if (method === 'GET' && path === '/engagement/status') return mockJson(state.engagementStatus);
     if (method === 'POST' && path === '/engagement/poll') return mockJson({ processed_posts: 0, stored_comments: 0 });
+
+    // Pipeline endpoints
+    if (method === 'GET' && path === '/pipeline/overview') return mockJson(state.pipelineOverview);
+    if (method === 'GET' && path === '/pipeline/items') return mockJson(state.pipelineItems);
+    if (method === 'GET' && path === '/pipeline/health') return mockJson(state.pipelineHealth);
+    if (method === 'POST' && path.startsWith('/pipeline/run/')) {
+      const agent = path.split('/').pop();
+      return mockJson({ agent, stale_claims_recovered: 0, errored_items_reset: 0, health: state.pipelineHealth });
+    }
 
     return mockJson({});
   });
@@ -1302,6 +1339,324 @@ describe('App', () => {
     await waitFor(() => {
       const alerts = screen.getAllByRole('alert');
       expect(alerts.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ── v6.3 Pipeline View tests ──────────────────────────────
+
+  it('renders pipeline view with status overview cards and stage visualization', async () => {
+    setupMockApi({
+      pipelineOverview: {
+        total: 10, claimed: 2,
+        status_counts: { backlog: 3, todo: 2, writing: 1, review: 1, ready_to_publish: 0, published: 1, amplified: 0, done: 2 },
+      },
+      pipelineHealth: {
+        health_status: 'healthy', overview: { total: 10 },
+        stale_claims: 0, errored_items: 0, stuck_items: 0, checked_at: '2026-02-10T12:00:00Z',
+      },
+    });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    // Health status in subtitle
+    expect(screen.getByText(/Health: healthy/)).toBeInTheDocument();
+    expect(screen.getByText(/Total items: 10/)).toBeInTheDocument();
+
+    // Overview cards
+    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+    expect(screen.getByText('Ready / Published')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
+
+    // Pipeline stage visualization
+    expect(screen.getByText('Pipeline Stages')).toBeInTheDocument();
+  });
+
+  it('shows health status banner when pipeline is degraded', async () => {
+    setupMockApi({
+      pipelineHealth: {
+        health_status: 'degraded', overview: { total: 5 },
+        stale_claims: 0, errored_items: 2, stuck_items: 1, checked_at: '2026-02-10T12:00:00Z',
+      },
+    });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pipeline degraded/)).toBeInTheDocument();
+      expect(screen.getByText(/2 errored item/)).toBeInTheDocument();
+      expect(screen.getByText(/1 stuck item/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows pipeline items list with status badges', async () => {
+    setupMockApi({
+      pipelineItems: [
+        {
+          id: 'pi-11111111-1111-1111-1111-111111111111',
+          status: 'WRITING',
+          pillar_theme: 'Adtech fundamentals',
+          sub_theme: 'Programmatic buying',
+          topic_keyword: 'real-time bidding',
+          claimed_by: 'writer-001',
+          quality_score: null,
+          readability_score: null,
+          fact_check_status: null,
+          last_error: null,
+          revision_count: 1,
+          max_revisions: 3,
+          updated_at: '2026-02-10T10:00:00Z',
+          draft_id: null,
+        },
+      ],
+    });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getByText('real-time bidding')).toBeInTheDocument();
+      expect(screen.getByText(/Adtech fundamentals/)).toBeInTheDocument();
+      expect(screen.getByText(/claimed by writer-001/)).toBeInTheDocument();
+      expect(screen.getByText(/Revisions: 1\/3/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows error details on pipeline items with last_error', async () => {
+    setupMockApi({
+      pipelineItems: [
+        {
+          id: 'pi-22222222-2222-2222-2222-222222222222',
+          status: 'WRITING',
+          pillar_theme: 'AI in advertising',
+          sub_theme: 'Generative creative',
+          topic_keyword: 'ai-creative-gen',
+          claimed_by: null,
+          quality_score: null,
+          readability_score: null,
+          fact_check_status: null,
+          last_error: 'Writer failed: LLM timeout after 30s',
+          revision_count: 2,
+          max_revisions: 3,
+          updated_at: '2026-02-10T09:00:00Z',
+          draft_id: null,
+        },
+      ],
+    });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error: Writer failed: LLM timeout/)).toBeInTheDocument();
+    });
+  });
+
+  it('calls run morgan agent endpoint when Run Morgan is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run Morgan' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/pipeline/run/morgan')).toBe(true);
+      expect(screen.getByText('Morgan PM complete')).toBeInTheDocument();
+    });
+  });
+
+  it('calls agent trigger endpoint when agent control button is clicked', async () => {
+    const { calls } = setupMockApi();
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Agent Controls')).toBeInTheDocument());
+
+    // Click the Scout agent button (first in the agent controls grid)
+    fireEvent.click(screen.getByText('Scout').closest('button'));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'POST' && call.path === '/pipeline/run/scout')).toBe(true);
+      expect(screen.getByText('Scout complete')).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading spinner on pipeline view before data resolves', async () => {
+    let resolveOverview;
+    const pendingOverview = new Promise((resolve) => { resolveOverview = resolve; });
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let overviewCallCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/pipeline/overview') {
+        overviewCallCount++;
+        if (overviewCallCount >= 1) {
+          await pendingOverview;
+          return mockJson({ total: 0, claimed: 0, status_counts: {} });
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<AppWithAuth />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    await openView('Pipeline');
+
+    expect(screen.getByText('Loading pipeline...')).toBeInTheDocument();
+
+    await act(async () => { resolveOverview(); });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading pipeline...')).not.toBeInTheDocument();
+      expect(screen.getByText('Content Pipeline')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error state on pipeline view when API fails', async () => {
+    setupMockApi();
+    const baseFetch = global.fetch;
+    let overviewCallCount = 0;
+    global.fetch = vi.fn(async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === '/pipeline/overview') {
+        overviewCallCount++;
+        if (overviewCallCount >= 1) {
+          throw new Error('Pipeline unavailable');
+        }
+      }
+      return baseFetch(url, options);
+    });
+    render(<AppWithAuth />);
+
+    await waitFor(() => expect(screen.getByText('Data refreshed')).toBeInTheDocument());
+    await openView('Pipeline');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load pipeline/)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('shows empty state on pipeline view when no items exist', async () => {
+    setupMockApi({ pipelineItems: [] });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No pipeline items')).toBeInTheDocument());
+  });
+
+  it('pipeline nav button has aria-current when active', async () => {
+    setupMockApi();
+    render(<AppWithAuth />);
+    await waitFor(() => expect(screen.getByText('Execution Console')).toBeInTheDocument());
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    const pipelineBtn = screen.getByRole('button', { name: 'Pipeline' });
+    expect(pipelineBtn.getAttribute('aria-current')).toBe('page');
+  });
+
+  // ── v6.4 Pipeline Mode / Shadow Mode tests ──────────────────
+
+  it('settings view shows pipeline mode selector with current mode', async () => {
+    setupMockApi({ adminConfig: { pipeline_mode: 'LEGACY' } });
+    render(<AppWithAuth />);
+
+    await openView('Settings');
+    await waitFor(() => expect(screen.getByText('Pipeline Mode')).toBeInTheDocument());
+
+    // Should show mode buttons
+    expect(screen.getByRole('button', { name: 'Legacy' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Shadow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'V6' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disabled' })).toBeInTheDocument();
+
+    // Current mode indicator — text split across <strong> element so check container
+    expect(screen.getByText('LEGACY')).toBeInTheDocument();
+  });
+
+  it('clicking shadow mode button calls pipeline-mode endpoint', async () => {
+    const { calls } = setupMockApi({ adminConfig: { pipeline_mode: 'LEGACY' } });
+    render(<AppWithAuth />);
+
+    await openView('Settings');
+    await waitFor(() => expect(screen.getByText('Pipeline Mode')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shadow' }));
+
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/pipeline-mode/shadow')).toBe(true);
+      expect(screen.getByText('Pipeline mode set to shadow')).toBeInTheDocument();
+    });
+  });
+
+  it('pipeline view shows mode banner when not in V6 mode', async () => {
+    setupMockApi({ adminConfig: { pipeline_mode: 'LEGACY' } });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pipeline-mode-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Pipeline Mode: LEGACY/)).toBeInTheDocument();
+      expect(screen.getByText(/V6 agents are not active/)).toBeInTheDocument();
+    });
+  });
+
+  it('pipeline view shows shadow mode warning banner', async () => {
+    setupMockApi({ adminConfig: { pipeline_mode: 'SHADOW' } });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pipeline-mode-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Pipeline Mode: SHADOW/)).toBeInTheDocument();
+      expect(screen.getByText(/do NOT publish/)).toBeInTheDocument();
+    });
+  });
+
+  it('pipeline view hides mode banner when in V6 mode', async () => {
+    setupMockApi({ adminConfig: { pipeline_mode: 'V6' } });
+    render(<AppWithAuth />);
+
+    await openView('Pipeline');
+    await waitFor(() => expect(screen.getByText('Content Pipeline')).toBeInTheDocument());
+
+    // Banner should NOT be shown in V6 mode
+    await waitFor(() => {
+      expect(screen.queryByTestId('pipeline-mode-banner')).not.toBeInTheDocument();
+    });
+  });
+
+  it('admin config response includes pipeline_mode', async () => {
+    const { calls } = setupMockApi({ adminConfig: { pipeline_mode: 'SHADOW' } });
+    render(<AppWithAuth />);
+
+    await openView('Settings');
+    await waitFor(() => expect(screen.getByText('Settings')).toBeInTheDocument());
+
+    // Verify admin config was requested
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'GET' && c.path === '/admin/config')).toBe(true);
+    });
+
+    // Shadow mode specific text should appear
+    await waitFor(() => {
+      expect(screen.getByText(/V6 runs alongside legacy but does NOT publish/)).toBeInTheDocument();
     });
   });
 });

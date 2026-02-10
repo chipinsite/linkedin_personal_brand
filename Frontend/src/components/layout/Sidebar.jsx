@@ -4,6 +4,7 @@ export default function Sidebar({ activeView, setActiveView, config, user, onLog
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Icons.dashboard },
     { id: 'content', label: 'Content', icon: Icons.content },
+    { id: 'pipeline', label: 'Pipeline', icon: Icons.analytics },
     { id: 'engagement', label: 'Engagement', icon: Icons.engage },
     { id: 'settings', label: 'Settings', icon: Icons.settings },
   ];
@@ -226,7 +227,7 @@ export default function Sidebar({ activeView, setActiveView, config, user, onLog
           </span>
         </div>
         <span style={{ fontSize: '10px', color: C.textDim, marginTop: '4px', display: 'block', fontFamily: "'DM Sans', sans-serif" }}>
-          v5.4 · SAST
+          v6.4 · SAST
         </span>
       </div>
     </nav>

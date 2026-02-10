@@ -1083,6 +1083,11 @@ All AI generated content must adhere to:
 | 5.4 | 2026-02-09 | Railway deployment infrastructure: Backend/Frontend Dockerfiles, docker-compose.prod.yml, production env template, nginx SPA config, and deployment docs |
 | 5.4.1 | 2026-02-10 | PostgreSQL migration fixes: sa.String + raw SQL enum strategy, lowercase enum values, nginx dynamic PORT for Railway |
 | 5.5 | 2026-02-10 | Zapier webhook integration: webhook_service with retries, HMAC signing, post.publish_ready/draft.approved/post.published events, admin status/test endpoints, migration 0007, and 10 tests |
+| 6.0 | 2026-02-10 | V6 pipeline foundation: content_pipeline_items table, PipelineStatus/SocialStatus enums, claim-lock service, status transition engine, migration 0008, and 23 tests |
+| 6.1 | 2026-02-10 | V6 agent services: Scout (source scanner, BACKLOG seeder), Writer (draft generator, TODO → REVIEW), Editor (7 quality gates, revision loop), PRODUCT_CONTEXT.md loader, textstat readability scoring, and 36 tests |
+| 6.2 | 2026-02-10 | V6 Phase 3: Publisher agent (webhook + PublishedPost), Promoter agent (engagement prompt + lifecycle), pipeline API routes with agent triggers, Celery worker with 11 tasks and beat schedule, and 36 tests |
+| 6.3 | 2026-02-10 | V6 Phase 4: Morgan PM self-healing agent (stale claim recovery, error reset, health monitoring), frontend PipelineView with status visualization and agent controls, pipeline health endpoint, Celery worker with 12 tasks, 20 backend tests and 10 frontend tests |
+| 6.4 | 2026-02-10 | V6 Phase 5 (FINAL): Shadow mode + progressive enablement — PipelineMode enum (legacy/shadow/v6/disabled), pipeline_mode on AppConfig, task gating on all 12 Celery tasks, Publisher shadow mode (dry-run), admin pipeline-mode/pipeline-status endpoints, frontend mode selector in Settings + mode banner in Pipeline view, migration 0009, 35 backend tests and 6 frontend tests |
 
 ---
 
@@ -3351,3 +3356,589 @@ Result:
 - `ZAPIER_WEBHOOK_URL` not yet set on Railway (user needs to create Zapier account first)
 - No acknowledgment mechanism to confirm LinkedIn post was published by Zapier
 - Webhook delivery uses `time.sleep()` for retry backoff, blocking the request thread (acceptable for single-user)
+
+---
+
+## 61. v6.0 Pipeline Foundation (2026-02-10)
+
+### 61.1 v6.0 Scope
+
+v6.0 introduces the V6 content pipeline data model and core infrastructure (Phase 1 of 5):
+
+- `content_pipeline_items` table with full lifecycle fields
+- Pipeline status enum with 8 states and validated transition engine
+- Social amplification status enum
+- Atomic claim-lock service for safe multi-worker processing
+- Revision tracking with configurable max revision cap
+- Pipeline overview and query helpers
+
+### 61.2 v6.0 Implementation Added
+
+- New enums:
+  - `PipelineStatus`: BACKLOG, TODO, WRITING, REVIEW, READY_TO_PUBLISH, PUBLISHED, AMPLIFIED, DONE
+  - `SocialStatus`: PENDING, AMPLIFIED, MONITORING_COMPLETE
+- New model:
+  - `ContentPipelineItem` in `/Users/sphiwemawhayi/Personal Brand/Backend/app/models.py`
+  - 22 fields: id, created_at, updated_at, draft_id FK, status, 4 claim fields, 3 quality gate fields, 2 revision fields, social_status, last_error, next_run_at, 3 topic metadata fields
+- New migration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/versions/0008_v6_pipeline.py`
+  - PostgreSQL native enum conversion using sa.String + raw SQL pattern (proven in 0001_initial)
+- New claim-lock service:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/claim_lock.py`
+  - `attempt_claim()` — atomic UPDATE WHERE claimed_by IS NULL
+  - `verify_claim()` — re-fetch and confirm ownership
+  - `release_claim()` — clear claim fields
+  - `find_stale_claims()` — detect claims older than threshold
+  - `force_release_claim()` — unconditional release for recovery
+- New pipeline service:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/pipeline.py`
+  - `ALLOWED_TRANSITIONS` map defining valid status paths
+  - `transition()` — atomic status change with optimistic WHERE clause
+  - `create_pipeline_item()` — seeds items at BACKLOG (or specified status)
+  - `get_items_by_status()`, `get_unclaimed_items_by_status()` — filtered queries
+  - `get_pipeline_overview()` — aggregated counts per status
+  - `increment_revision()`, `has_exceeded_max_revisions()` — revision tracking
+- Updated db_check:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/db_check.py`
+  - `content_pipeline_items` added to REQUIRED_TABLES
+- New tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v6_pipeline_foundation.py`
+  - 23 tests across 6 test classes:
+    - TestPipelineItemCreation (2): default fields, explicit status
+    - TestStatusTransitions (8): valid/invalid paths, happy path, concurrent modification, nonexistent item
+    - TestClaimLock (4): lifecycle, concurrent claim, wrong worker, stale detection
+    - TestRevisionTracking (2): increment, max revision check
+    - TestPipelineQueries (3): overview counts, status filter, unclaimed filter
+    - TestDbCheckInclusion (1): table in required set
+
+### 61.3 Pipeline Status Flow
+
+```
+BACKLOG → TODO → WRITING → REVIEW → READY_TO_PUBLISH → PUBLISHED → AMPLIFIED → DONE
+                    ↑         |
+                    └─────────┘  (Editor sends back for revision)
+```
+
+Additional allowed transitions:
+- WRITING → BACKLOG (max revisions exceeded)
+- REVIEW → BACKLOG (max revisions exceeded)
+- READY_TO_PUBLISH → BACKLOG (admin rejection)
+- TODO → BACKLOG (manual reset)
+
+### 61.4 v6.0 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `cd Backend && ./.venv/bin/alembic upgrade head`
+
+Result:
+
+- backend tests passed (`193/193`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+- migration 0008 applied cleanly on SQLite
+
+### 61.5 Remaining Constraints
+
+- PostgreSQL enum creation follows proven pattern but has not been deployed to Railway yet
+- Claim locking is tested serially on SQLite; true concurrent safety comes from PostgreSQL row-level locks
+- No API routes, Celery tasks, or frontend views for pipeline yet (Phase 2+)
+- Agent services (Scout, Writer, Editor, Publisher, Promoter, Morgan) are Phase 2-4
+
+---
+
+## 62. v6.1 Agent Services — Scout, Writer, Editor (2026-02-10)
+
+### 62.1 v6.1 Scope
+
+v6.1 implements the three core V6 pipeline agents (Phase 2 of 5):
+
+- PRODUCT_CONTEXT.md loader for Editor fact-checking
+- Scout agent: source scanning → BACKLOG seeding
+- Writer agent: TODO → WRITING → REVIEW with content_engine draft generation
+- Editor agent: REVIEW → 7 quality gates → READY_TO_PUBLISH or revision loop
+- textstat dependency for Flesch-Kincaid readability scoring
+
+### 62.2 v6.1 Implementation Added
+
+- New dependency:
+  - `textstat>=0.7.3,<1` in `Backend/requirements.txt`
+  - NLTK cmudict corpus for Flesch-Kincaid readability scoring
+- New PRODUCT_CONTEXT.md loader:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/product_context.py`
+  - `ProductContext` dataclass with identity, topics, banned claims, experience markers
+  - Regex-based Markdown section extraction via `_extract_list_items()`
+  - Singleton caching via `get_product_context()` and `reload_product_context()`
+- New agents package:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/__init__.py`
+- New Scout agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/scout.py`
+  - `run_scout(db, max_items=5)` scans recent source_materials, seeds pipeline BACKLOG
+  - Respects `BACKLOG_FLOOR=5` — stops seeding when backlog has enough items
+  - Skips duplicate topics already represented in active pipeline items
+  - Assigns pillar_theme and sub_theme from content pyramid
+- New Writer agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/writer.py`
+  - `run_writer(db, max_items=3)` claims unclaimed TODO items
+  - `process_one_item()` generates drafts via `content_engine.generate_draft()`
+  - Links draft_id back to pipeline item
+  - On success: transitions TODO → WRITING → REVIEW
+  - On failure: increments revision, transitions back to TODO with error
+- New Editor agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/editor.py`
+  - `run_editor(db, max_items=3)` claims unclaimed REVIEW items
+  - 7 quality gates:
+    1. `_check_factual_accuracy()` — validates against PRODUCT_CONTEXT.md identity/claims
+    2. `_check_readability()` — Flesch-Kincaid grade level 6-14 via textstat
+    3. `_check_guardrails()` — existing guardrail validation (banned phrases, limits)
+    4. `_check_no_urls()` — no external URLs in post body
+    5. `_check_no_unsupported_claims()` — no superlatives or guarantee language
+    6. `_check_topical_relevance()` — domain keyword presence (adtech/AI/advertising)
+    7. `_check_experience_signal()` — at least one first-person narrative marker
+  - `review_content()` aggregates all gates into `EditorVerdict`
+  - On all gates pass: sets quality_score, readability_score, fact_check_status="passed", transitions to READY_TO_PUBLISH
+  - On gate failure with revisions remaining: sends back to TODO for Writer retry
+  - On max revisions exceeded: sends to BACKLOG for human review
+- New tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v6_phase2_agents.py`
+  - 36 tests across 7 test classes:
+    - TestProductContextLoader (6): real file load, banned claims, experience markers, out-of-scope, missing file, singleton caching
+    - TestScoutAgent (3): create items, skip duplicates, respect backlog floor
+    - TestWriterAgent (3): process todo item, run with no items, link draft
+    - TestEditorQualityGates (14): factual accuracy pass/fail, readability pass/result, no URLs pass/fail, no unsupported claims pass/fail, topical relevance pass/fail, experience signal pass/fail, guardrails pass/fail
+    - TestEditorAggregateReview (4): high quality pass, off-topic fail, quality score, readability score
+    - TestEditorProcessFlow (4): pass → READY_TO_PUBLISH, fail → TODO, max revisions → BACKLOG, no draft skip
+    - TestEditorVerdict (2): failure summary all pass, failure summary with failures
+
+### 62.3 Agent Pipeline Flow
+
+```
+Scout                Writer              Editor
+──────               ──────              ──────
+source_materials →   TODO items →        REVIEW items →
+seed BACKLOG         claim + generate    7 quality gates
+                     draft               ↓
+                     link draft_id       Pass? → READY_TO_PUBLISH
+                     → REVIEW            Fail? → TODO (revision)
+                                         Max revisions? → BACKLOG
+```
+
+### 62.4 Editor Quality Gates Detail
+
+| Gate | What It Checks | Fail Message |
+|------|---------------|-------------|
+| factual_accuracy | Title claims match PRODUCT_CONTEXT.md identity | Claims title 'X' — should be 'Head of Sales' |
+| readability | Flesch-Kincaid grade 6-14 | Grade level X too simple/complex |
+| guardrails | Banned phrases, hashtag limit, word limit | BANNED_PHRASE:X |
+| no_external_urls | No http/https links in body | Post body contains an external URL |
+| no_unsupported_claims | No "the best", "guaranteed", etc. | Unsupported claim patterns: X |
+| topical_relevance | Domain keywords present (adtech/AI/advertising) | Content lacks domain-relevant keywords |
+| experience_signal | First-person narrative markers | No personal experience marker found |
+
+### 62.5 v6.1 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+
+Result:
+
+- backend tests passed (`229/229`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+
+### 62.6 Remaining Constraints
+
+- Agents are service-level functions only — no Celery tasks or API routes yet (Phase 3)
+- textstat requires NLTK cmudict corpus; Editor gracefully degrades if unavailable
+- Scout relies on source_materials having pillar_theme populated
+- Writer uses mock mode draft generation in test environment
+- No frontend views for pipeline yet (Phase 4)
+
+---
+
+## 63. v6.2 Publisher + Promoter + Pipeline API + Celery (2026-02-10)
+
+### 63.1 v6.2 Scope
+
+v6.2 implements Phase 3 of the V6 pipeline:
+
+- Publisher agent: READY_TO_PUBLISH → PUBLISHED with Zapier webhook, PublishedPost creation, Telegram fallback
+- Promoter agent: PUBLISHED → AMPLIFIED → DONE with golden-hour engagement prompts
+- Pipeline API routes for visibility, filtering, manual transitions, and agent triggers
+- Celery worker with 11 tasks (6 legacy + 5 V6) and beat schedule
+- 36 new tests across 9 test classes
+
+### 63.2 v6.2 Implementation Added
+
+- New Publisher agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/publisher.py`
+  - `run_publisher(db, max_items=3)` claims unclaimed READY_TO_PUBLISH items
+  - `process_one_item()`:
+    1. Retrieves linked draft via draft_id
+    2. Creates PublishedPost record with random_schedule_for_day()
+    3. Fires `post.publish_ready` webhook to Zapier (primary automated publishing)
+    4. Sends Telegram V6_PUBLISH_READY notification as fallback
+    5. Transitions pipeline item to PUBLISHED
+  - Bridges V6 pipeline to legacy publish model for backward compatibility
+- New Promoter agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/promoter.py`
+  - `run_promoter(db, max_items=3)` claims unclaimed PUBLISHED items
+  - `process_one_item()`:
+    1. Sends Telegram V6_ENGAGEMENT_PROMPT with golden-hour guidance
+    2. Sets social_status to AMPLIFIED
+    3. Transitions PUBLISHED → AMPLIFIED
+    4. Transitions AMPLIFIED → DONE (completes lifecycle)
+    5. Sets social_status to MONITORING_COMPLETE
+  - Handles items without drafts gracefully (content preview optional)
+- New Pipeline API routes:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/pipeline.py`
+  - `GET /pipeline/overview` — aggregated status counts, total, claimed
+  - `GET /pipeline/items` — list with optional `?status=` filter, 100 item limit
+  - `GET /pipeline/items/{id}` — item detail with all pipeline fields
+  - `POST /pipeline/items/{id}/transition` — manual status change with transition validation
+  - `POST /pipeline/run/{scout,writer,editor,publisher,promoter}` — manual agent triggers with audit logging
+  - All endpoints protected by read/write auth
+- New Celery worker:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/worker.py`
+  - Celery app with Redis broker, JSON serialization, Africa/Johannesburg timezone
+  - 11 registered tasks:
+    - Legacy: create_system_draft, publish_due, poll_comments, ingest_research, recompute_learning, send_daily_summary
+    - V6: v6_run_scout, v6_run_writer, v6_run_editor, v6_run_publisher, v6_run_promoter
+  - Beat schedule with staggered intervals to prevent contention
+  - `TASK_REGISTRY` dict for direct invocation without Celery
+  - Graceful Celery import fallback (CELERY_AVAILABLE flag)
+- App registration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/main.py` — pipeline router added
+- New tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v6_phase3.py`
+  - 36 tests across 9 test classes:
+    - TestPublisherAgent (7): creates PublishedPost, fires webhook, sends Telegram, transitions to PUBLISHED, skips no draft, batch processing, no items
+    - TestPromoterAgent (6): sends engagement prompt, transitions to DONE, sets social_status, batch processing, no items, handles no draft
+    - TestPipelineOverviewEndpoint (2): returns status counts, has all statuses
+    - TestPipelineItemsEndpoint (4): returns list, status filter, invalid status, serialization
+    - TestPipelineItemDetailEndpoint (2): nonexistent item, existing item
+    - TestPipelineTransitionEndpoint (4): valid transition, invalid transition, nonexistent item, invalid status name
+    - TestPipelineAgentTriggerEndpoints (5): trigger each of 5 agents
+    - TestFullPipelineFlow (1): READY_TO_PUBLISH → PUBLISHED → AMPLIFIED → DONE
+    - TestWorkerTaskRegistry (5): registry exists, legacy tasks, V6 tasks, callable, total count
+
+### 63.3 Celery Beat Schedule
+
+| Schedule ID | Task | Interval |
+|-------------|------|----------|
+| v6-scout-scan | v6_run_scout | Every 6 hours at :15 |
+| v6-writer-generate | v6_run_writer | Every 2 hours at :30 |
+| v6-editor-review | v6_run_editor | Every 2 hours at :45 |
+| v6-publisher-publish | v6_run_publisher | Every 30 minutes |
+| v6-promoter-engage | v6_run_promoter | Every hour at :10 |
+| daily-draft-generation | create_system_draft | Daily at 04:00 |
+| check-publish-due | publish_due | Every 5 minutes |
+| poll-comments | poll_comments | Every 10 minutes |
+| daily-research-ingestion | ingest_research | Daily at 02:00 |
+| nightly-learning-recompute | recompute_learning | Daily at 23:30 |
+| daily-summary-report | send_daily_summary | Daily at 18:30 |
+
+### 63.4 Pipeline API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /pipeline/overview | read | Status counts, total, claimed |
+| GET | /pipeline/items | read | List items (optional ?status= filter) |
+| GET | /pipeline/items/{id} | read | Item detail |
+| POST | /pipeline/items/{id}/transition | write | Manual status transition |
+| POST | /pipeline/run/scout | write | Trigger Scout agent |
+| POST | /pipeline/run/writer | write | Trigger Writer agent |
+| POST | /pipeline/run/editor | write | Trigger Editor agent |
+| POST | /pipeline/run/publisher | write | Trigger Publisher agent |
+| POST | /pipeline/run/promoter | write | Trigger Promoter agent |
+
+### 63.5 v6.2 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+
+Result:
+
+- backend tests passed (`265/265`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+
+### 63.6 Remaining Constraints
+
+- Celery beat schedule not tested against live Redis broker
+- Publisher uses random_schedule_for_day() depending on timezone — tested in UTC only
+- Promoter auto-completes lifecycle (→ DONE) without configurable monitoring window
+- Migration 0008 not yet deployed to Railway production
+
+---
+
+## 64. v6.3 Morgan PM + Frontend Pipeline Panel (2026-02-10)
+
+### 64.1 v6.3 Scope
+
+v6.3 implements Phase 4 of the V6 pipeline:
+
+- Morgan PM self-healing agent: stale claim recovery, errored item reset, pipeline health monitoring
+- Frontend PipelineView: status visualization, agent controls, item listing
+- Pipeline health endpoint and Morgan trigger route
+- Celery worker expanded to 12 tasks with Morgan PM beat schedule
+- 20 new backend tests across 7 test classes, 10 new frontend tests
+
+### 64.2 v6.3 Implementation Added
+
+- New Morgan PM agent:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/morgan.py`
+  - `recover_stale_claims(db, max_age_minutes=30)` — finds items with expired claims via `find_stale_claims()`, releases them via `force_release_claim()`, logs audit events
+  - `reset_errored_items(db, stale_minutes=60)` — finds items stuck with `last_error` set and no forward progress:
+    - Reset targets: WRITING→TODO, REVIEW→TODO, READY_TO_PUBLISH→BACKLOG
+    - Skips recently updated items (within `stale_minutes`)
+    - Skips currently claimed items
+    - Skips items exceeding `max_revisions + MORGAN_MAX_AUTO_RESETS` (prevents infinite reset loops)
+    - Clears `last_error` and updates `updated_at` after successful reset
+  - `generate_health_report(db)` — aggregates pipeline health:
+    - Counts stale claims (expired but not released)
+    - Counts errored unclaimed non-terminal items
+    - Counts stuck items (not updated in 4+ hours, non-terminal, unclaimed)
+    - Determines `health_status`: "unhealthy" (stale>0 or errored≥3), "degraded" (errored>0 or stuck>0), "healthy"
+  - `run_morgan(db)` — orchestrates all three phases, returns summary dict
+- Pipeline route additions:
+  - `POST /pipeline/run/morgan` — trigger Morgan PM with audit logging
+  - `GET /pipeline/health` — read-only pipeline health report (no healing actions)
+- Worker updates:
+  - `_task_run_morgan()` function added
+  - `v6_run_morgan` Celery task registered
+  - Beat schedule: `v6-morgan-heal` runs every 15 minutes
+  - `TASK_REGISTRY` expanded to 12 entries (6 legacy + 6 V6)
+  - Phase 3 test updated: task count assertion 11→12
+- New frontend PipelineView:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/PipelineView.jsx`
+  - Health status banner (`role="alert"`) for degraded/unhealthy states
+  - 4 MetricCard overview: Backlog, In progress, Ready/Published, Done
+  - Clickable 8-stage pipeline visualization with per-stage counts
+  - 6 agent control buttons: Scout, Writer, Editor, Publisher, Promoter, Morgan PM
+  - Pipeline items list with status filter dropdown (top 20 items)
+  - Per-item display: topic, theme, claimed_by, quality scores, errors, revisions
+  - Loading spinner, error state with retry, empty state messaging
+- Frontend API client additions:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js`
+  - `pipelineOverview()`, `pipelineItems(status)`, `pipelineItem(id)`, `pipelineTransition(id, toStatus)`, `pipelineHealth()`, `runAgent(agent)`
+- App registration:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/App.jsx` — PipelineView import and registration in views object
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` — Pipeline nav item between Content and Engagement, version v6.3
+- New backend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v6_phase4_morgan.py`
+  - 20 tests across 7 test classes:
+    - TestStaleClaimeRecovery (3): releases stale, ignores fresh, recovers multiple
+    - TestErrorReset (6): writing→todo, review→todo, ready_to_publish→backlog, skips recent, skips claimed, skips max resets
+    - TestHealthReport (4): healthy, degraded with errors, unhealthy with stale, degraded with stuck
+    - TestFullMorganRun (2): no issues, with stale + error
+    - TestPipelineHealthRoute (1): GET /pipeline/health returns health report
+    - TestMorganTriggerRoute (1): POST /pipeline/run/morgan triggers Morgan
+    - TestWorkerMorganTask (3): registry, callable, total=12
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - 10 new pipeline tests: rendering + overview cards, degraded health banner, items list with badges, error display, Run Morgan trigger, agent control button trigger, loading spinner, error state, empty state, aria-current on pipeline nav
+
+### 64.3 Morgan PM Self-Healing Behavior
+
+| Phase | What It Does | Configuration |
+|-------|-------------|---------------|
+| Stale Claim Recovery | Releases claims older than threshold | `max_age_minutes=30` (default) |
+| Error Reset | Resets stuck errored items to earlier status | `stale_minutes=60`, `MORGAN_MAX_AUTO_RESETS=2` |
+| Health Report | Aggregates pipeline metrics, determines status | Stuck threshold: 4 hours |
+
+Error Reset Targets:
+| From Status | To Status | Rationale |
+|------------|----------|-----------|
+| WRITING | TODO | Writer can retry |
+| REVIEW | TODO | Writer can regenerate |
+| READY_TO_PUBLISH | BACKLOG | Full reprocessing needed |
+
+Health Status Thresholds:
+| Status | Condition |
+|--------|-----------|
+| unhealthy | stale_claims > 0 OR errored_items ≥ 3 |
+| degraded | errored_items > 0 OR stuck_items > 0 |
+| healthy | none of the above |
+
+### 64.4 Updated Pipeline API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /pipeline/overview | read | Status counts, total, claimed |
+| GET | /pipeline/items | read | List items (optional ?status= filter) |
+| GET | /pipeline/items/{id} | read | Item detail |
+| POST | /pipeline/items/{id}/transition | write | Manual status transition |
+| POST | /pipeline/run/scout | write | Trigger Scout agent |
+| POST | /pipeline/run/writer | write | Trigger Writer agent |
+| POST | /pipeline/run/editor | write | Trigger Editor agent |
+| POST | /pipeline/run/publisher | write | Trigger Publisher agent |
+| POST | /pipeline/run/promoter | write | Trigger Promoter agent |
+| POST | /pipeline/run/morgan | write | Trigger Morgan PM agent |
+| GET | /pipeline/health | read | Pipeline health report |
+
+### 64.5 Updated Celery Beat Schedule
+
+| Schedule ID | Task | Interval |
+|-------------|------|----------|
+| v6-scout-scan | v6_run_scout | Every 6 hours at :15 |
+| v6-writer-generate | v6_run_writer | Every 2 hours at :30 |
+| v6-editor-review | v6_run_editor | Every 2 hours at :45 |
+| v6-publisher-publish | v6_run_publisher | Every 30 minutes |
+| v6-promoter-engage | v6_run_promoter | Every hour at :10 |
+| v6-morgan-heal | v6_run_morgan | Every 15 minutes |
+
+### 64.6 v6.3 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+
+Result:
+
+- backend tests passed (`285/285`)
+- frontend tests passed (`61/61`)
+- frontend production build passed
+
+### 64.7 Remaining Constraints
+
+- Morgan tested serially on SQLite; real concurrency comes from PostgreSQL production
+- Beat schedule frequency (15 min) not validated against production pipeline volume
+- No error history tracking — Morgan clears last_error on reset
+- Migration 0008 not yet deployed to Railway production
+
+---
+
+## 65. v6.4 Shadow Mode + Progressive Enablement (2026-02-10)
+
+### 65.1 v6.4 Scope
+
+v6.4 implements Phase 5 (final) of the V6 pipeline:
+
+- Pipeline mode system with 4 operational states (legacy, shadow, v6, disabled)
+- Task gating on all 12 Celery content tasks based on active pipeline mode
+- Shadow mode for V6 Publisher (dry-run without webhook/Telegram)
+- Admin endpoints for mode switching and pipeline status summary
+- Frontend pipeline mode selector and mode indicator
+- Migration 0009 for pipeline_mode column on app_config
+- 35 new backend tests across 12 test classes, 6 new frontend tests
+
+### 65.2 v6.4 Implementation Added
+
+- New PipelineMode enum:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/models.py`
+  - `PipelineMode(str, enum.Enum)`: legacy="LEGACY", shadow="SHADOW", v6="V6", disabled="DISABLED"
+  - `AppConfig.pipeline_mode` column with default `PipelineMode.legacy`
+- New migration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/versions/0009_pipeline_mode.py`
+  - Adds `pipeline_mode` column as `sa.String(20)` with `server_default="legacy"`
+  - PostgreSQL: `CREATE TYPE pipelinemode` + `ALTER COLUMN ... TYPE ... USING` (proven pattern)
+- New pipeline mode service:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/pipeline_mode.py`
+  - `get_pipeline_mode(db)` — returns current mode from AppConfig
+  - `set_pipeline_mode(db, mode)` — updates mode, commits
+  - `should_run_legacy(db)` — True for legacy/shadow modes
+  - `should_run_v6(db)` — True for v6/shadow modes
+  - `is_shadow_mode(db)` — True only for shadow
+  - `get_pipeline_status_summary(db)` — full admin view with mode, task gating, pipeline item counts
+- Updated config state:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/config_state.py`
+  - Added `PipelineMode` import, `get_pipeline_mode()` accessor
+  - `get_or_create_app_config()` initializes `pipeline_mode=PipelineMode.legacy`
+- Worker task gating:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/worker.py`
+  - `_check_should_run_legacy(db)` — checks mode, returns False for v6/disabled
+  - `_check_should_run_v6(db)` — checks mode, returns False for legacy/disabled
+  - Both gracefully fallback to True if pipeline_mode column doesn't exist yet
+  - Legacy gated: `_task_create_system_draft`, `_task_publish_due`
+  - V6 gated: `_task_run_scout`, `_task_run_writer`, `_task_run_editor`, `_task_run_publisher`, `_task_run_promoter`, `_task_run_morgan`
+  - Publisher has special shadow mode handling: passes `shadow_mode=True` when `is_shadow_mode(db)`
+- Publisher shadow mode:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/agents/publisher.py`
+  - `process_one_item()` and `run_publisher()` accept `shadow_mode` parameter
+  - In shadow: creates PublishedPost, transitions pipeline item to PUBLISHED, but skips webhook and Telegram
+- Admin endpoints:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py`
+  - `POST /admin/pipeline-mode/{mode}` — validates mode, updates, logs audit event
+  - `GET /admin/pipeline-status` — returns mode summary, gating status, pipeline counts
+  - `GET /admin/config` now includes `pipeline_mode` in response
+- Frontend updates:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/services/api.js` — `setPipelineMode()`, `pipelineStatus()`
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/SettingsView.jsx` — pipeline mode selector with 4 buttons (Legacy, Shadow, V6, Disabled), contextual descriptions, aria-pressed for active mode
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/views/PipelineView.jsx` — mode indicator banner for non-V6 modes with contextual warnings
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/components/layout/Sidebar.jsx` — version v6.4
+- New backend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_v6_phase5_shadow_mode.py`
+  - 35 tests across 12 test classes:
+    - TestPipelineModeEnum (2): values, membership
+    - TestAppConfigPipelineMode (2): default, explicit set
+    - TestGetSetPipelineMode (3): default, set, roundtrip
+    - TestShouldRunLegacy (4): legacy=True, shadow=True, v6=False, disabled=False
+    - TestShouldRunV6 (4): legacy=False, shadow=True, v6=True, disabled=False
+    - TestIsShadowMode (3): legacy=False, shadow=True, v6=False
+    - TestPipelineStatusSummary (5): structure, mode, legacy_active, v6_active, pipeline_counts
+    - TestPublisherShadowMode (4): normal publishes, shadow skips webhook, shadow creates post, shadow transitions
+    - TestAdminPipelineModeEndpoint (5): get mode, set valid, set invalid, audit logged, config includes mode
+    - TestAdminPipelineStatusEndpoint (1): returns summary
+    - TestAdminConfigIncludesMode (1): pipeline_mode in config response
+    - TestMigration0009 (1): revision chain
+- Expanded frontend tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Frontend/src/__tests__/App.test.jsx`
+  - 6 new tests: mode selector rendering, shadow mode API call, pipeline view mode banner for legacy, shadow mode warning banner, V6 mode hides banner, admin config includes pipeline_mode
+
+### 65.3 Pipeline Mode Behavior
+
+| Mode | Legacy Tasks | V6 Tasks | V6 Publishing | Use Case |
+|------|-------------|----------|---------------|----------|
+| `legacy` (default) | Run | Skip | N/A | Current behavior, safe default |
+| `shadow` | Run | Run | Dry-run (skip webhook/Telegram) | Safe parallel validation |
+| `v6` | Skip | Run | Full (webhook + Telegram) | V6 is primary pipeline |
+| `disabled` | Skip | Skip | N/A | Emergency stop (all tasks return early) |
+
+Task Gating Implementation:
+- Celery beat schedule unchanged — all 12 tasks fire on schedule
+- Gating happens inside task function body via `_check_should_run_legacy()` / `_check_should_run_v6()`
+- Skipped tasks return `"skipped:pipeline_mode"` and log info message
+- Kill switch remains ultimate override regardless of pipeline mode
+
+### 65.4 Admin Endpoints (v6.4)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | /admin/pipeline-mode/{mode} | write | Switch mode (legacy/shadow/v6/disabled), audit logged |
+| GET | /admin/pipeline-status | read | Mode summary with task gating and pipeline counts |
+
+### 65.5 v6.4 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+
+- backend tests passed (`320/320`)
+- frontend tests passed (`67/67`)
+- frontend production build passed
+- unified smoke run passed
+
+### 65.6 Remaining Constraints
+
+- Migrations 0008 + 0009 not yet deployed to Railway production PostgreSQL
+- Shadow mode Publisher creates PublishedPost records that coexist with legacy PublishedPost entries
+- No automated divergence monitoring between shadow V6 and legacy outputs
+- No percentage-based gradual cutover (binary mode switch only)
+- Pipeline mode changes take effect on next task execution, not mid-task

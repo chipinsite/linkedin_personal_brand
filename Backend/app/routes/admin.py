@@ -21,7 +21,9 @@ from ..models import (
 from ..schemas import AuditLogRead
 from ..services.audit import log_audit
 from ..services.auth import require_read_access, require_write_access
+from ..models import PipelineMode
 from ..services.config_state import get_or_create_app_config
+from ..services.pipeline_mode import get_pipeline_mode, get_pipeline_status_summary, set_pipeline_mode
 from ..services.webhook_service import is_webhook_configured, send_test_webhook
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -47,6 +49,7 @@ def _serialize_rows(rows):
 @router.get("/config")
 def read_config(db: Session = Depends(get_db), _auth: None = Depends(require_read_access)):
     config = get_or_create_app_config(db)
+    mode = get_pipeline_mode(db)
     return {
         "timezone": settings.timezone,
         "posting_window_start": settings.posting_window_start,
@@ -57,6 +60,7 @@ def read_config(db: Session = Depends(get_db), _auth: None = Depends(require_rea
         "escalation_follower_threshold": settings.escalation_follower_threshold,
         "linkedin_api_mode": settings.linkedin_api_mode,
         "kill_switch": config.kill_switch,
+        "pipeline_mode": mode.value,
     }
 
 
@@ -137,6 +141,44 @@ def export_state(db: Session = Depends(get_db), _auth: None = Depends(require_re
         "engagement_metrics": _serialize_rows(db.query(EngagementMetric).order_by(EngagementMetric.collected_at.desc()).all()),
         "notifications": _serialize_rows(db.query(NotificationLog).order_by(NotificationLog.created_at.desc()).all()),
     }
+
+
+@router.post("/pipeline-mode/{mode}")
+def change_pipeline_mode(
+    mode: str,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_write_access),
+):
+    """Change the pipeline mode.
+
+    Valid modes: legacy, shadow, v6, disabled
+    """
+    # Validate mode string
+    valid_modes = {m.name: m for m in PipelineMode}
+    if mode.lower() not in valid_modes:
+        return {"error": f"Invalid mode '{mode}'. Valid: {list(valid_modes.keys())}"}
+
+    new_mode = valid_modes[mode.lower()]
+    old_mode = get_pipeline_mode(db)
+    set_pipeline_mode(db, new_mode)
+    log_audit(
+        db=db,
+        actor="api",
+        action="admin.pipeline_mode_change",
+        resource_type="app_config",
+        resource_id="1",
+        detail={"from": old_mode.value, "to": new_mode.value},
+    )
+    return {
+        "pipeline_mode": new_mode.value,
+        "previous_mode": old_mode.value,
+    }
+
+
+@router.get("/pipeline-status")
+def pipeline_status(db: Session = Depends(get_db), _auth: None = Depends(require_read_access)):
+    """Return detailed pipeline operational status."""
+    return get_pipeline_status_summary(db)
 
 
 @router.get("/webhook-status")

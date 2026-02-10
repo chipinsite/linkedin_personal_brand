@@ -28,6 +28,30 @@ class PostTone(str, enum.Enum):
     exploratory = "EXPLORATORY"
 
 
+class PipelineStatus(str, enum.Enum):
+    backlog = "BACKLOG"
+    todo = "TODO"
+    writing = "WRITING"
+    review = "REVIEW"
+    ready_to_publish = "READY_TO_PUBLISH"
+    published = "PUBLISHED"
+    amplified = "AMPLIFIED"
+    done = "DONE"
+
+
+class SocialStatus(str, enum.Enum):
+    pending = "PENDING"
+    amplified = "AMPLIFIED"
+    monitoring_complete = "MONITORING_COMPLETE"
+
+
+class PipelineMode(str, enum.Enum):
+    legacy = "LEGACY"
+    shadow = "SHADOW"
+    v6 = "V6"
+    disabled = "DISABLED"
+
+
 class Draft(Base):
     __tablename__ = "drafts"
 
@@ -123,6 +147,9 @@ class AppConfig(Base):
     kill_switch: Mapped[bool] = mapped_column(Boolean, default=False)
     zapier_webhook_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     zapier_webhook_secret: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    pipeline_mode: Mapped[PipelineMode] = mapped_column(
+        Enum(PipelineMode), default=PipelineMode.legacy, server_default="legacy",
+    )
 
 
 class SourceMaterial(Base):
@@ -202,3 +229,47 @@ class RefreshToken(Base):
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="refresh_tokens")
+
+
+class ContentPipelineItem(Base):
+    __tablename__ = "content_pipeline_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Link to draft (optional until Writer creates one)
+    draft_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("drafts.id"), nullable=True)
+
+    # Pipeline status
+    status: Mapped[PipelineStatus] = mapped_column(Enum(PipelineStatus), default=PipelineStatus.backlog)
+
+    # Claim fields for atomic worker processing
+    claimed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    claim_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Quality gate results
+    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    readability_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fact_check_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # Revision tracking
+    revision_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_revisions: Mapped[int] = mapped_column(Integer, default=3)
+
+    # Social amplification status
+    social_status: Mapped[SocialStatus | None] = mapped_column(Enum(SocialStatus), nullable=True)
+
+    # Error and scheduling
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Topic metadata (seeded by Scout)
+    topic_keyword: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    pillar_theme: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    sub_theme: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # Relationship
+    draft: Mapped[Draft | None] = relationship()

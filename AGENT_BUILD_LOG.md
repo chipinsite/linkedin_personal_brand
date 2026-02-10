@@ -55,6 +55,498 @@ Rate confidence in this build from 1 to 10 and explain why.
 <List next steps>
 
 ---
+## [2026-02-10 22:30 SAST] Build: v6.4 Shadow Mode + Progressive Enablement (Phase 5)
+
+### Build Phase
+Post Build
+
+### Goal
+Implement Phase 5 of the V6 pipeline: shadow mode for running V6 alongside legacy, progressive cutover controls, feature flags for enabling/disabling V6 pipeline components, and admin/frontend visibility into pipeline mode.
+
+### Context
+V6 Phase 5 of 5. Phases 1-4 (foundation, agents, publisher/promoter/API/Celery, Morgan PM + frontend) are complete. This phase adds the operational controls to safely transition from the legacy workflow to the V6 pipeline.
+
+### Scope
+In scope:
+- `PipelineMode` enum and `pipeline_mode` column on `app_config` table
+- Migration `0009_pipeline_mode.py` adding the column
+- `app/services/pipeline_mode.py` — mode checking, task gating, shadow mode logic
+- Update `config_state.py` with pipeline mode accessor
+- Update `worker.py` — gate legacy and V6 tasks based on active pipeline mode
+- Update V6 Publisher agent to skip webhook/Telegram in shadow mode (dry-run)
+- Admin routes: `POST /admin/pipeline-mode/{mode}`, `GET /admin/pipeline-status`
+- Frontend: pipeline mode selector in Settings, mode indicator in Pipeline view
+- Backend tests for mode gating, shadow publisher, admin endpoints
+- Frontend tests for mode selector and indicator
+
+Out of scope:
+- Gradual percentage-based cutover (future enhancement)
+- Automatic rollback on V6 errors
+- Multi-user mode controls
+
+### Actual Changes Made
+1. Added `PipelineMode` enum to `models.py`: `legacy`, `shadow`, `v6`, `disabled`
+2. Added `pipeline_mode` column to `AppConfig` model (default: `legacy`)
+3. Created migration `0009_pipeline_mode.py` with PostgreSQL native enum support
+4. Created `app/services/pipeline_mode.py` with 6 functions:
+   - `get_pipeline_mode(db)`, `set_pipeline_mode(db, mode)`
+   - `should_run_legacy(db)`, `should_run_v6(db)`, `is_shadow_mode(db)`
+   - `get_pipeline_status_summary(db)` — aggregated admin view
+5. Updated `config_state.py` with `PipelineMode` import and `get_pipeline_mode()` accessor
+6. Updated `worker.py` with `_check_should_run_legacy()` and `_check_should_run_v6()` gating helpers on all 8 content tasks (2 legacy, 6 V6); special shadow mode handling for Publisher
+7. Updated Publisher agent: accepts `shadow_mode` parameter, skips webhook/Telegram in shadow mode but still creates PublishedPost and transitions pipeline item
+8. Added admin routes: `POST /admin/pipeline-mode/{mode}` and `GET /admin/pipeline-status` with audit logging
+9. Updated `GET /admin/config` to include `pipeline_mode` field
+10. Added frontend pipeline mode selector in SettingsView with 4 mode buttons and contextual descriptions
+11. Added pipeline mode indicator banner in PipelineView for non-V6 modes
+12. Added 35 backend tests across 12 test classes
+13. Added 6 frontend tests for mode selector and indicator
+14. Updated Sidebar version to v6.4
+
+### Files Touched
+- `Backend/app/models.py` — PipelineMode enum + AppConfig column
+- `Backend/alembic/versions/0009_pipeline_mode.py` (new) — migration
+- `Backend/app/services/pipeline_mode.py` (new) — mode management service
+- `Backend/app/services/config_state.py` — pipeline mode accessor
+- `Backend/app/worker.py` — task gating helpers on 8 tasks
+- `Backend/app/services/agents/publisher.py` — shadow_mode parameter
+- `Backend/app/routes/admin.py` — 2 new endpoints + config update
+- `Backend/tests/test_v6_phase5_shadow_mode.py` (new) — 35 tests
+- `Frontend/src/services/api.js` — 2 new API methods
+- `Frontend/src/components/views/SettingsView.jsx` — pipeline mode selector
+- `Frontend/src/components/views/PipelineView.jsx` — mode indicator banner
+- `Frontend/src/components/layout/Sidebar.jsx` — version v6.4
+- `Frontend/src/__tests__/App.test.jsx` — 6 new tests
+
+### Reasoning
+The Pipeline Selector approach provides the cleanest mental model:
+- `legacy` = current behavior, V6 tasks are no-ops
+- `shadow` = both run, but V6 does NOT publish (safe parallel validation)
+- `v6` = V6 is primary, legacy tasks are no-ops
+- `disabled` = emergency stop for all pipeline activity
+
+Gating inside task functions (not beat schedule) means tasks still fire but return early — simpler and more reliable than dynamic beat reconfiguration.
+
+### Assumptions
+- AppConfig singleton pattern (id=1) remains adequate
+- Shadow mode means V6 agents process content but Publisher skips webhook/Telegram
+- Legacy kill_switch still overrides everything regardless of pipeline mode
+- Celery beat still fires all tasks; gating happens inside task functions
+
+### Risks and Tradeoffs
+- Risk: Both pipelines running in shadow mode doubles compute usage — acceptable for single-user
+- Risk: Pipeline mode changes take effect on next task execution, not immediately — acceptable given task intervals
+- Tradeoff: Task gating vs dynamic beat reconfiguration — chose simplicity
+- Mitigation: Kill switch remains the ultimate override regardless of pipeline mode
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- `./scripts/v1_smoke.sh`
+
+Result:
+- Backend: 320 passed (285 existing + 35 new)
+- Frontend: 67 passed (61 existing + 6 new)
+- Frontend build: passed
+- Unified smoke: passed
+
+### Result
+The V6 pipeline now has full operational controls for progressive cutover. Operators can switch between legacy, shadow, V6, and disabled modes via Settings. Shadow mode runs V6 agents alongside legacy without publishing. All V6 phases (1-5) are now complete.
+
+### Confidence Rating
+9/10 — All tests pass, architecture is clean and well-gated. Deducted 1 point because PostgreSQL-specific enum migration 0009 hasn't been validated on production yet.
+
+### Known Gaps or Uncertainty
+- Migration 0009 not yet deployed to Railway production PostgreSQL
+- Shadow mode Publisher creates PublishedPost records but doesn't verify they don't interfere with legacy PublishedPost entries
+- No automated monitoring/alerting when shadow mode V6 results diverge from legacy
+
+### Next Steps
+- Deploy v6.0-v6.4 to Railway production
+- Run migration 0008 + 0009 on production PostgreSQL
+- Test shadow mode in production
+- Update HANDOVER.md and CLAUDE.md documentation
+
+---
+## [2026-02-10 20:00 SAST] Build: v6.3 Morgan PM + Frontend Pipeline Panel
+
+### Build Phase
+Post Build
+
+### Goal
+Implement the Morgan PM self-healing agent and a dedicated frontend Pipeline view — completing Phase 4 of the V6 pipeline.
+
+### Context
+V6 Phase 4 of 5. Phases 1-3 (foundation, agents, publisher/promoter/API/Celery) are complete. This phase adds the operational self-healing agent (Morgan) for stale claim recovery, errored item reset, and pipeline health monitoring. It also adds a frontend Pipeline view for visual status overview, manual transitions, and agent triggering from the UI.
+
+### Scope
+In scope:
+- `app/services/agents/morgan.py` — stale claim recovery, error reset, pipeline health reporting
+- Morgan PM API route (`POST /pipeline/run/morgan`) and health endpoint (`GET /pipeline/health`)
+- Celery task `v6_run_morgan` with beat schedule (every 15 minutes)
+- `Frontend/src/components/views/PipelineView.jsx` — pipeline status visualization, item listing, agent trigger buttons
+- Pipeline API client methods in `Frontend/src/services/api.js`
+- Pipeline nav item in Sidebar.jsx and view registration in App.jsx
+- Backend tests for Morgan agent behavior
+- Frontend tests for Pipeline view rendering and action paths
+
+Out of scope:
+- Shadow mode / progressive enablement (Phase 5)
+- Railway deployment of v6 changes
+- Frontend pipeline item detail/edit views
+
+### Actual Changes Made
+1. New agent: `app/services/agents/morgan.py` — 3-phase self-healing cycle:
+   - `recover_stale_claims()` — finds and force-releases expired claim locks via claim_lock service
+   - `reset_errored_items()` — resets stuck errored items: WRITING→TODO, REVIEW→TODO, READY_TO_PUBLISH→BACKLOG; skips recently updated, currently claimed, and max-auto-reset-exceeded items
+   - `generate_health_report()` — aggregates pipeline health: stale claims, errored items, stuck items (4h+); determines status as "healthy", "degraded", or "unhealthy"
+   - `run_morgan()` — orchestrates all three phases and returns summary
+2. Modified routes: `app/routes/pipeline.py` — added `POST /pipeline/run/morgan` (trigger Morgan with audit) and `GET /pipeline/health` (read-only health report)
+3. Modified worker: `app/worker.py` — added `_task_run_morgan()`, registered `v6_run_morgan` Celery task, added beat schedule entry (every 15 min), TASK_REGISTRY now has 12 entries
+4. Updated Phase 3 test: `tests/test_v6_phase3.py` — updated task count assertion from 11 to 12
+5. New view: `Frontend/src/components/views/PipelineView.jsx` — health status banner (role="alert"), 4 MetricCard overview, clickable 8-stage pipeline visualization, 6 agent control buttons, pipeline items list with status filter dropdown, error/quality/revision display per item
+6. Modified: `Frontend/src/services/api.js` — added 6 pipeline methods (pipelineOverview, pipelineItems, pipelineItem, pipelineTransition, pipelineHealth, runAgent)
+7. Modified: `Frontend/src/App.jsx` — imported and registered PipelineView
+8. Modified: `Frontend/src/components/layout/Sidebar.jsx` — added Pipeline nav item, version to v6.3
+9. New tests: `Backend/tests/test_v6_phase4_morgan.py` — 20 tests across 7 test classes
+10. Expanded: `Frontend/src/__tests__/App.test.jsx` — 10 new pipeline tests (rendering, health banner, items, errors, agent triggers, loading/error/empty states, a11y)
+
+### Files Touched
+- `Backend/app/services/agents/morgan.py` (new)
+- `Backend/app/routes/pipeline.py` (modified — 2 new endpoints)
+- `Backend/app/worker.py` (modified — Morgan task, beat, registry)
+- `Backend/tests/test_v6_phase4_morgan.py` (new)
+- `Backend/tests/test_v6_phase3.py` (modified — task count fix)
+- `Frontend/src/components/views/PipelineView.jsx` (new)
+- `Frontend/src/services/api.js` (modified — 6 pipeline methods)
+- `Frontend/src/App.jsx` (modified — PipelineView registration)
+- `Frontend/src/components/layout/Sidebar.jsx` (modified — Pipeline nav, v6.3)
+- `Frontend/src/__tests__/App.test.jsx` (modified — pipeline mock endpoints, 10 tests)
+
+### Reasoning
+- Morgan reuses existing claim_lock and pipeline services — no new infrastructure needed
+- Error reset targets respect ALLOWED_TRANSITIONS map: READY_TO_PUBLISH resets to BACKLOG (not REVIEW) because the transition map only allows ready_to_publish→published or ready_to_publish→backlog
+- MORGAN_MAX_AUTO_RESETS=2 prevents infinite reset loops by checking revision_count against max_revisions+2
+- Health report uses three-tier status: unhealthy (stale claims or 3+ errors), degraded (any errors or stuck items), healthy
+- PipelineView follows existing view patterns (initialLoading, fetchError, withAction)
+- Frontend pipeline tests follow established mock API pattern with createApiState overrides
+
+### Assumptions
+- Claim lock and pipeline services work correctly (tested in Phase 1)
+- 30-minute stale claim threshold and 60-minute error stale threshold are reasonable defaults
+- Pipeline health endpoint does not require write auth (read-only monitoring)
+
+### Risks and Tradeoffs
+- Morgan runs every 15 minutes via beat — frequency may need tuning based on production pipeline volume
+- Error reset always clears last_error — no history of previous errors is maintained
+- Health report re-queries stale claims/errors each time — no caching for frequently polled monitoring
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/test_v6_phase4_morgan.py -v` → 20 passed
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` → 285 passed
+- `cd Frontend && npm test -- --run` → 61 passed
+- `cd Frontend && npm run build` → passed
+
+Manual checks:
+- Verified READY_TO_PUBLISH error reset targets BACKLOG (aligned with ALLOWED_TRANSITIONS)
+- Verified Morgan skips recently updated items, claimed items, and max-resets-exceeded items
+
+Result:
+- 285 backend tests, 61 frontend tests, frontend build — all passing
+
+### Result
+V6 Phase 4 complete. Morgan PM self-healing agent monitors pipeline health and automatically recovers stale claims and errored items. Frontend Pipeline view provides full operational visibility with status overview, stage visualization, agent controls, and item listing. All 6 V6 agents are now implemented and wired into Celery.
+
+### Confidence Rating
+9/10 — All Morgan behaviors tested with real DB interactions, all pipeline routes validated, frontend view tested for rendering, actions, loading/error/empty states, and accessibility. Slight uncertainty on production claim recovery timing with concurrent workers.
+
+### Known Gaps or Uncertainty
+- Morgan tested serially on SQLite; real concurrency comes from PostgreSQL production
+- Beat schedule frequency (15 min) not validated against production pipeline volume
+- No error history tracking — Morgan clears last_error on reset
+
+### Next Steps
+- Phase 5: Shadow mode, progressive enablement
+- Deploy v6.0-v6.3 to Railway (migration 0008 pending)
+- Configure Zapier webhook URL on production
+
+---
+## [2026-02-10 17:30 SAST] Build: v6.2 Publisher + Promoter + Pipeline API + Celery
+
+### Build Phase
+Post Build
+
+### Goal
+Implement Publisher and Promoter agents, pipeline API routes, and Celery task integration for all V6 agents — completing Phase 3 of the V6 pipeline.
+
+### Context
+V6 Phase 3 of 5. Phase 2 (Scout, Writer, Editor agents) is complete. This phase adds the last two agent services that move content from READY_TO_PUBLISH → PUBLISHED → AMPLIFIED → DONE, exposes pipeline management API routes, and wires all agents into the Celery task scheduler.
+
+### Scope
+In scope:
+- `app/services/agents/publisher.py` — claims READY_TO_PUBLISH items, triggers Zapier webhook, transitions to PUBLISHED
+- `app/services/agents/promoter.py` — claims PUBLISHED items, sends Telegram engagement reminder, transitions to AMPLIFIED → DONE
+- `app/routes/pipeline.py` — pipeline overview, item listing, manual transition, item detail, agent trigger endpoints
+- `app/worker.py` — Celery task definitions and beat schedule for all 5 V6 agents (Scout, Writer, Editor, Publisher, Promoter)
+- Comprehensive tests for both agents, pipeline routes, and worker task definitions
+- Registration of pipeline router in main.py
+
+Out of scope:
+- Morgan PM self-healing (Phase 4)
+- Frontend pipeline view (Phase 4)
+- Shadow mode / progressive enablement (Phase 5)
+
+### Actual Changes Made
+1. New agent: `app/services/agents/publisher.py` — claims READY_TO_PUBLISH items, creates PublishedPost record bridging V6 pipeline to legacy publish model, fires post.publish_ready webhook to Zapier, sends Telegram manual-publish reminder as fallback, transitions to PUBLISHED
+2. New agent: `app/services/agents/promoter.py` — claims PUBLISHED items, sends Telegram golden-hour engagement prompt, updates social_status to AMPLIFIED then MONITORING_COMPLETE, transitions PUBLISHED → AMPLIFIED → DONE
+3. New routes: `app/routes/pipeline.py` — GET /pipeline/overview (aggregated counts), GET /pipeline/items (with optional status filter), GET /pipeline/items/{id}, POST /pipeline/items/{id}/transition (with validation), POST /pipeline/run/{scout,writer,editor,publisher,promoter} (manual agent triggers)
+4. New worker: `app/worker.py` — Celery app with 11 tasks (6 legacy + 5 V6), beat schedule with staggered intervals, TASK_REGISTRY dict for direct invocation, graceful Celery import fallback
+5. Modified `app/main.py` — registered pipeline router
+6. New tests: `Backend/tests/test_v6_phase3.py` — 36 tests across 9 test classes
+
+### Files Touched
+- `Backend/app/services/agents/publisher.py` (new)
+- `Backend/app/services/agents/promoter.py` (new)
+- `Backend/app/routes/pipeline.py` (new)
+- `Backend/app/worker.py` (new)
+- `Backend/app/main.py` (modified — added pipeline router)
+- `Backend/tests/test_v6_phase3.py` (new)
+- `Frontend/src/components/layout/Sidebar.jsx` (modified — version to v6.2)
+
+### Reasoning
+- Publisher reuses existing webhook_service and telegram_service — no new external dependencies
+- Publisher creates PublishedPost records to bridge V6 pipeline to legacy model for backward compatibility
+- Promoter completes lifecycle (→ DONE) since engagement monitoring handled by existing comment polling system
+- Pipeline routes with agent triggers enable operator control without Celery/Redis dependency
+- Worker uses lazy imports inside task functions to avoid circular import issues
+- Celery import wrapped in try/except for graceful fallback when Redis unavailable
+
+### Assumptions
+- webhook_service.send_webhook() works for Publisher's Zapier trigger (tested via mock)
+- telegram_service.send_telegram_message() works for Promoter's engagement prompt (tested via mock)
+- Celery + Redis available in production; TASK_REGISTRY provides fallback for direct invocation
+
+### Risks and Tradeoffs
+- Publisher creates a PublishedPost bridging V6 pipeline to legacy model — dual-model complexity
+- Promoter auto-transitions to DONE — may need configurable monitoring window later (Morgan PM Phase 4)
+- Worker legacy task imports reference actual service functions not yet integration-tested through worker path
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/test_v6_phase3.py -v` → 36 passed
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` → 265 passed
+- `cd Frontend && npm test -- --run` → 51 passed
+- `cd Frontend && npm run build` → passed
+
+Manual checks:
+- Verified Publisher creates PublishedPost with correct draft_id and content_body
+- Verified Promoter sets social_status to monitoring_complete on completion
+- Verified pipeline API returns correct status counts and field serialization
+
+Result:
+- 265 backend tests, 51 frontend tests, frontend build — all passing
+
+### Result
+V6 Phase 3 complete. Content can now flow end-to-end: BACKLOG → TODO → WRITING → REVIEW → READY_TO_PUBLISH → PUBLISHED → AMPLIFIED → DONE. Pipeline API provides full visibility and manual control. Celery integrates all 5 V6 agents with staggered beat schedules.
+
+### Confidence Rating
+9/10 — All agents tested with mocked external services, pipeline API routes tested with real DB interactions, full end-to-end flow validated. Worker task registry verified. Slight uncertainty on Celery beat schedule timing in production (only registry, not live Redis).
+
+### Known Gaps or Uncertainty
+- Celery beat schedule not tested against live Redis broker
+- Publisher uses random_schedule_for_day() depending on timezone config — tested in UTC only
+- Worker legacy task imports (engagement, reporting, research_ingestion) not integration-tested through worker path
+
+### Next Steps
+- Phase 4: Morgan PM self-healing agent, frontend pipeline panel
+- Phase 5: Shadow mode, progressive enablement
+- Deploy v6.0 + v6.1 + v6.2 to Railway (migration 0008 pending)
+
+---
+## [2026-02-10 15:00 SAST] Build: v6.1 Scout + Writer + Editor Agents
+
+### Build Phase
+Post Build
+
+### Goal
+Implement the three core V6 pipeline agents (Scout, Writer, Editor) plus the PRODUCT_CONTEXT.md loader service and textstat readability scoring.
+
+### Context
+V6 Phase 2 of 5. Phase 1 (pipeline foundation) is complete. This phase adds the agent services that drive content through BACKLOG → TODO → WRITING → REVIEW → READY_TO_PUBLISH with quality gates and revision loops.
+
+### Scope
+In scope:
+- `textstat` dependency for readability scoring
+- `app/services/product_context.py` — loads and parses PRODUCT_CONTEXT.md for Editor fact-checking
+- `app/services/agents/scout.py` — scans source_materials, seeds pipeline items at BACKLOG
+- `app/services/agents/writer.py` — claims TODO items, generates drafts, links to pipeline, transitions to REVIEW
+- `app/services/agents/editor.py` — claims REVIEW items, validates 7 quality gates, transitions to READY_TO_PUBLISH or revision loop
+- Comprehensive tests for all 3 agents plus product_context loader
+
+Out of scope:
+- Publisher/Promoter agents (Phase 3)
+- Pipeline API routes (Phase 3)
+- Celery task integration (Phase 3+)
+- Frontend pipeline view (Phase 4)
+
+### Actual Changes Made
+1. Added `textstat>=0.7.3,<1` to requirements.txt and installed with NLTK cmudict data
+2. New service: `app/services/product_context.py` — parses PRODUCT_CONTEXT.md, extracts identity, banned claims, out-of-scope topics, experience markers; singleton caching
+3. New package: `app/services/agents/__init__.py`
+4. New agent: `app/services/agents/scout.py` — scans source_materials for recent Adtech content, seeds pipeline items at BACKLOG; respects BACKLOG_FLOOR=5, skips duplicate topics
+5. New agent: `app/services/agents/writer.py` — claims TODO items, generates drafts using existing content_engine, links draft_id to pipeline item, transitions TODO → WRITING → REVIEW; on failure sends back to TODO with error
+6. New agent: `app/services/agents/editor.py` — claims REVIEW items, validates against 7 quality gates (factual accuracy, readability, guardrails, no URLs, no unsupported claims, topical relevance, experience signal); on pass transitions to READY_TO_PUBLISH; on fail sends to TODO; on max revisions sends to BACKLOG
+7. Fixed editor.py dynamic `__import__` to proper static import for Draft model
+8. New tests: `Backend/tests/test_v6_phase2_agents.py` — 36 tests across 7 test classes
+
+### Files Touched
+- `Backend/requirements.txt` (modified — added textstat)
+- `Backend/app/services/product_context.py` (new)
+- `Backend/app/services/agents/__init__.py` (new)
+- `Backend/app/services/agents/scout.py` (new)
+- `Backend/app/services/agents/writer.py` (new)
+- `Backend/app/services/agents/editor.py` (new)
+- `Backend/tests/test_v6_phase2_agents.py` (new)
+- `Frontend/src/components/layout/Sidebar.jsx` (modified — version to v6.1)
+
+### Reasoning
+- Scout scans existing source_materials table rather than adding new ingestion logic — reuses existing research pipeline
+- Writer delegates to existing content_engine.generate_draft() — no duplication of generation logic
+- Editor uses 7 independent gate functions for clear testability and future extensibility
+- Product context loader uses regex-based Markdown parsing for reliability over complex AST parsing
+- Editor gracefully degrades when textstat/NLTK data unavailable (passes with flag)
+
+### Assumptions
+- PRODUCT_CONTEXT.md exists at repo root and follows the documented structure
+- textstat library is compatible with Python 3.14
+- LLM_MOCK_MODE=true for test environment draft generation
+
+### Risks and Tradeoffs
+- textstat requires NLTK cmudict corpus data — must be downloaded separately (SSL workaround may be needed)
+- Scout relies on source_materials having pillar_theme populated — empty sources produce no pipeline items
+- Writer uses mock mode draft generation in tests — real LLM integration tested separately
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/test_v6_phase2_agents.py -v` → 36 passed
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` → 229 passed
+- `cd Frontend && npm test -- --run` → 51 passed
+- `cd Frontend && npm run build` → passed
+
+Manual checks:
+- Verified PRODUCT_CONTEXT.md parsing extracts correct identity fields
+- Verified all 7 editor quality gates pass/fail on expected content
+
+Result:
+- 229 backend tests, 51 frontend tests, frontend build — all passing
+
+### Result
+V6 Phase 2 agent services are now implemented:
+- Scout agent can scan sources and seed pipeline BACKLOG
+- Writer agent can claim TODO items, generate drafts, and transition to REVIEW
+- Editor agent can validate content against 7 quality gates and manage the revision loop
+- PRODUCT_CONTEXT.md is parsed and cached as a singleton for Editor fact-checking
+
+### Confidence Rating
+9/10 — All three agents are implemented with comprehensive test coverage (36 tests). Graceful degradation built into readability gate. Small deduction: textstat NLTK dependency requires manual corpus download.
+
+### Known Gaps or Uncertainty
+- textstat requires NLTK cmudict corpus; will fail gracefully if not downloaded on production
+- Real Claude API draft generation not tested (mock mode only); tested separately in v5.0 content engine tests
+- Scout pillar matching uses substring matching which may produce false positives on edge cases
+
+### Next Steps
+- Phase 3: Publisher + Promoter agents, pipeline API routes
+- Phase 4: Morgan PM self-healing, frontend pipeline panel
+- Deploy v6.0 + v6.1 to Railway (0008 migration pending)
+
+---
+## [2026-02-10 14:00 SAST] Build: v6.0 Pipeline Foundation
+
+### Build Phase
+Post Build
+
+### Goal
+Add the V6 content pipeline infrastructure: new `content_pipeline_items` table, pipeline status enum with transition engine, and atomic claim-lock service for safe multi-worker processing.
+
+### Context
+V6 execution plan approved. PRODUCT_CONTEXT.md created and validated. This is Phase 1 of 5 for the V6 LinkedIn agent pipeline architecture. Builds on v5.5 without breaking existing behavior.
+
+### Scope
+In scope:
+- Migration `0008_v6_pipeline.py` creating `content_pipeline_items` table
+- `PipelineStatus` and `SocialStatus` enums in models.py
+- `ContentPipelineItem` ORM model in models.py
+- `app/services/claim_lock.py` — atomic claim/verify/release/stale detection
+- `app/services/pipeline.py` — status transition validation, item queries, item creation
+- Update `db_check.py` REQUIRED_TABLES to include new table
+- Comprehensive tests for claim locking and pipeline transitions
+
+Out of scope:
+- Agent services (Scout, Writer, Editor, Publisher, Promoter, Morgan)
+- API route endpoints for pipeline (Phase 3)
+- Frontend pipeline view (Phase 4)
+- Celery task integration (Phase 2+)
+
+### Actual Changes Made
+1. Added `PipelineStatus` enum (8 states: BACKLOG, TODO, WRITING, REVIEW, READY_TO_PUBLISH, PUBLISHED, AMPLIFIED, DONE)
+2. Added `SocialStatus` enum (3 states: PENDING, AMPLIFIED, MONITORING_COMPLETE)
+3. Added `ContentPipelineItem` model with 22 fields (claim fields, quality fields, revision tracking, topic metadata)
+4. Created migration `0008_v6_pipeline.py` with PostgreSQL native enum conversion (sa.String + raw SQL pattern)
+5. Created `claim_lock.py` with 5 functions: attempt_claim, verify_claim, release_claim, find_stale_claims, force_release_claim
+6. Created `pipeline.py` with transition engine (ALLOWED_TRANSITIONS map), create/query/increment helpers, overview aggregator
+7. Updated `db_check.py` REQUIRED_TABLES to include `content_pipeline_items`
+8. Created 23 tests across 6 test classes
+9. Updated Sidebar.jsx version marker to v6.0
+
+### Files Touched
+- `Backend/app/models.py`
+- `Backend/alembic/versions/0008_v6_pipeline.py` (new)
+- `Backend/app/services/claim_lock.py` (new)
+- `Backend/app/services/pipeline.py` (new)
+- `Backend/app/services/db_check.py`
+- `Backend/tests/test_v6_pipeline_foundation.py` (new)
+- `Frontend/src/components/layout/Sidebar.jsx`
+
+### Reasoning
+Phase 1 isolates data model and core infrastructure from agent logic. This allows validating the foundation (claim locking, status transitions) independently before building agents that depend on it. The claim-lock pattern uses atomic UPDATE WHERE for concurrency safety without requiring distributed locks.
+
+### Assumptions
+- SQLite is sufficient for local testing (no real concurrency tests, but logic is validated)
+- Pipeline status names align with V6 execution plan
+- Existing v5.5 models and routes are not modified
+
+### Risks and Tradeoffs
+- Claim locking on SQLite doesn't test true concurrent access; PostgreSQL production will get real concurrency safety from row-level locking
+- Adding a new table requires migration on production Railway deployment
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/test_v6_pipeline_foundation.py -v` (23/23 passed)
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` (193/193 passed)
+- `cd Frontend && npm test -- --run` (51/51 passed)
+- `cd Frontend && npm run build` (passed)
+- `cd Backend && ./.venv/bin/alembic upgrade head` (migration 0008 applied cleanly)
+Manual checks: None
+Result: All green
+
+### Result
+The V6 pipeline foundation is in place. Pipeline items can be created, transitioned through validated status paths, atomically claimed by workers, and queried by status. The data model supports the full BACKLOG-to-DONE lifecycle with revision tracking and quality gate fields. Zero impact on existing v5.5 behavior.
+
+### Confidence Rating
+9/10 — All 23 new tests pass, all 193 backend tests pass (zero regressions), migration applies cleanly on SQLite. Only gap is PostgreSQL concurrency testing which will be validated on Railway deploy.
+
+### Known Gaps or Uncertainty
+- PostgreSQL enum creation follows proven pattern from 0001_initial but has not been deployed yet
+- Claim locking is tested serially; true concurrent worker safety requires PostgreSQL row-level locks
+
+### Next Steps
+Phase 2: Scout + Writer + Editor agents using this pipeline foundation
+
+---
 ## [2026-02-09 00:00 SAST] Build: v4.5 Startup Self-Check and DB Diagnostic Endpoint
 
 ### Build Phase
@@ -4371,3 +4863,166 @@ Project now has complete deployment infrastructure for Railway (primary) and Doc
 5. Set environment variables
 6. Deploy and verify /health endpoint
 7. Register first user account
+
+---
+## [2026-02-10 09:00 SAST] Build: Railway Production Deployment and PostgreSQL Migration Fixes
+
+### Build Phase
+Post Build
+
+### Goal
+Deploy the application to Railway production environment and resolve all deployment failures.
+
+### Context
+v5.4 added deployment infrastructure (Dockerfiles, docker-compose, Railway config). First actual deploy to Railway revealed three critical issues with PostgreSQL compatibility and Railway PORT injection.
+
+### Scope
+In scope:
+- Fix Alembic migration for PostgreSQL enum types
+- Fix SQLAlchemy enum case mismatch (name vs value)
+- Fix frontend nginx PORT for Railway dynamic injection
+- Deploy all 4 services and validate health
+- Activate Claude API key on production
+
+Out of scope:
+- New features
+- Frontend changes (beyond PORT fix)
+
+### Actual Changes Made (Post Build only)
+1. Rewrote `Backend/alembic/versions/0001_initial.py` to use `sa.String(length=20)` for enum columns in `create_table`, then raw SQL `CREATE TYPE` + `ALTER TABLE ALTER COLUMN ... TYPE ... USING` for PostgreSQL native enums
+2. Changed PostgreSQL enum values from uppercase to lowercase to match SQLAlchemy enum name persistence behavior
+3. Created `Frontend/nginx.conf.template` with `${PORT}` variable for Railway dynamic port
+4. Updated `Frontend/Dockerfile` to use `envsubst` at runtime for PORT injection
+
+### Files Touched
+- /Users/sphiwemawhayi/Personal Brand/Backend/alembic/versions/0001_initial.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Frontend/nginx.conf.template (new)
+- /Users/sphiwemawhayi/Personal Brand/Frontend/Dockerfile (modified)
+
+### Reasoning
+PostgreSQL handles enum types differently from SQLite. SQLAlchemy's `sa.Enum` inside `create_table` triggers an internal `_on_table_create` event that executes `CREATE TYPE` automatically, even with `create_type=False`. The only reliable approach is to avoid `sa.Enum` entirely in `create_table` and use raw SQL after table creation. Railway injects dynamic PORT which cannot be hardcoded in nginx.
+
+### Assumptions
+- SQLAlchemy will continue to persist enum `.name` (lowercase) not `.value` (uppercase)
+- Railway always injects `$PORT` environment variable
+
+### Risks and Tradeoffs
+- Raw SQL in migration is PostgreSQL-specific but guarded by dialect check (`is_pg`)
+- SQLite path unchanged and continues to work for local development
+
+### Tests and Validation
+Commands run:
+- `railway up --path-as-root Backend/` (all 3 services)
+- `railway up --path-as-root Frontend/`
+- `curl https://backend-api-production-1841.up.railway.app/health` -> `{"status":"ok"}`
+- `curl https://backend-api-production-1841.up.railway.app/health/db` -> all 11 tables present, migration at 0006_user_auth
+
+Manual checks:
+- User registration and login verified on production
+- Draft generation verified (with posting frequency guard)
+
+Result:
+All 4 Railway services running and healthy. User account created. Draft generation working with live Claude API.
+
+### Result
+Production deployment fully operational on Railway with PostgreSQL, Redis, and 4 services.
+
+### Confidence Rating
+9/10 — All services healthy, migration verified, user flow tested. High confidence in production stability.
+
+### Known Gaps or Uncertainty
+- Railway auto-builds from GitHub will fail on env var changes (monorepo issue). Must use `railway up --path-as-root` for manual deploys.
+
+### Next Steps
+1. Set up Zapier webhook for automated LinkedIn posting
+2. Configure Telegram bot for approval workflow
+
+---
+## [2026-02-10 10:30 SAST] Build: v5.5 Zapier Webhook Integration
+
+### Build Phase
+Post Build
+
+### Goal
+Add Zapier webhook integration so the app can automatically post to LinkedIn via Zapier when a post is due for publishing.
+
+### Context
+User confirmed LinkedIn is in manual-publish mode and wanted to explore alternatives. Zapier was selected as the bridge between the app and LinkedIn. The webhook fires content to a Zapier Catch Hook which then publishes to LinkedIn.
+
+### Scope
+In scope:
+- Webhook service with retry logic and HMAC signing
+- Integration at 3 workflow events (publish_ready, draft.approved, post.published)
+- Admin endpoints for webhook status and testing
+- Config settings and migration for webhook URL/secret
+- 10 new backend tests
+
+Out of scope:
+- Zapier account setup (user responsibility)
+- Direct LinkedIn API integration
+- Frontend webhook controls
+
+### Actual Changes Made (Post Build only)
+1. Created `Backend/app/services/webhook_service.py` with `send_webhook()`, `send_test_webhook()`, HMAC signing, retry logic (3 attempts, exponential backoff), and notification logging
+2. Added `zapier_webhook_url` and `zapier_webhook_secret` to `Backend/app/config.py`
+3. Added webhook columns to `AppConfig` model in `Backend/app/models.py`
+4. Created migration `Backend/alembic/versions/0007_webhook_config.py`
+5. Integrated webhook into `Backend/app/services/workflow.py` — fires `post.publish_ready` in `publish_due_manual_posts()`
+6. Integrated webhook into `Backend/app/routes/drafts.py` — fires `draft.approved` on draft approval
+7. Integrated webhook into `Backend/app/routes/posts.py` — fires `post.published` on manual publish confirmation
+8. Added `GET /admin/webhook-status` and `POST /admin/webhook-test` endpoints to `Backend/app/routes/admin.py`
+9. Created `Backend/tests/test_webhook.py` with 10 tests covering payload format, retries, logging, HMAC, admin endpoints, and integration
+
+### Files Touched
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/services/webhook_service.py (new)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/config.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/models.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/alembic/versions/0007_webhook_config.py (new)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/services/workflow.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/routes/drafts.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/routes/posts.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py (modified)
+- /Users/sphiwemawhayi/Personal Brand/Backend/tests/test_webhook.py (new)
+
+### Reasoning
+Zapier was selected over direct LinkedIn API because: (1) LinkedIn Marketing API requires official approval process, (2) Zapier provides a no-code bridge that can be set up immediately, (3) webhook pattern is future-proof and can work with other automation platforms. Webhook fires on `publish_due_manual_posts()` as the primary integration point because this is when a post is ready to go live.
+
+### Assumptions
+- User will create Zapier account and set up the Catch Hook -> LinkedIn Zap
+- Zapier webhook URL will be set via `ZAPIER_WEBHOOK_URL` environment variable
+- Retry behavior (3 attempts, 1s/2s/4s backoff) is sufficient for Zapier reliability
+
+### Risks and Tradeoffs
+- Webhook delivery is fire-and-forget with retries; no acknowledgment from Zapier that LinkedIn post was created
+- Time.sleep in retry loop blocks the request thread; acceptable for low-volume single-user use
+- HMAC signing is optional (only if `ZAPIER_WEBHOOK_SECRET` is set)
+
+### Tests and Validation
+Commands run:
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v` -> 170 passed
+- `cd Frontend && npm test -- --run` -> 51 passed
+- `cd Frontend && npm run build` -> production build passed
+- Railway deploy: all 3 backend services updated
+- `curl https://backend-api-production-1841.up.railway.app/admin/webhook-status` -> `{"configured":false,"url_set":false,...}`
+- `curl -X POST https://backend-api-production-1841.up.railway.app/admin/webhook-test` -> `{"success":false,"error":"No webhook URL configured"}`
+- `curl https://backend-api-production-1841.up.railway.app/health/db` -> migration at `0007_webhook_config`, all tables present
+
+Result:
+All tests pass. Webhook infrastructure deployed and verified on production. Ready for Zapier URL configuration.
+
+### Result
+Zapier webhook integration fully implemented, tested (170 backend tests), and deployed to production Railway. Migration 0007 applied. Admin endpoints for status and testing operational. Awaiting user to create Zapier account and set webhook URL.
+
+### Confidence Rating
+9/10 — Clean implementation following established patterns (telegram_service.py notification logging). All tests pass. Deployed and verified on production. Only gap is the actual Zapier account setup which is user-side.
+
+### Known Gaps or Uncertainty
+- `ZAPIER_WEBHOOK_URL` not yet set on Railway (user needs to create Zapier account first)
+- No acknowledgment mechanism to confirm LinkedIn post was actually published by Zapier
+- Zapier free tier limits may apply
+
+### Next Steps
+1. User creates Zapier account and Catch Hook -> LinkedIn Zap
+2. Set `ZAPIER_WEBHOOK_URL` on all 3 backend Railway services
+3. Test with `POST /admin/webhook-test`
+4. Generate a draft, approve, and verify end-to-end flow

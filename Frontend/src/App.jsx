@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import DashboardView from './components/views/DashboardView';
 import ContentView from './components/views/ContentView';
 import EngagementView from './components/views/EngagementView';
+import PipelineView from './components/views/PipelineView';
 import SettingsView from './components/views/SettingsView';
 import LoginView from './components/views/LoginView';
 import LoadingSpinner from './components/shared/LoadingSpinner';
@@ -64,6 +65,7 @@ export default function App() {
   const views = {
     dashboard: <DashboardView />,
     content: <ContentView />,
+    pipeline: <PipelineView />,
     engagement: <EngagementView />,
     settings: <SettingsView onConfigChange={setConfig} onResetUiPreferences={handleResetUiPreferences} />,
   };

@@ -23,6 +23,7 @@ REQUIRED_TABLES = frozenset({
     "learning_weights",
     "users",
     "refresh_tokens",
+    "content_pipeline_items",
 })
 
 

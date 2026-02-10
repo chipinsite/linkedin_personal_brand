@@ -144,6 +144,41 @@ export default function SettingsView({ onConfigChange, onResetUiPreferences }) {
         </div>
       </div>
 
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '20px' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, display: 'block', marginBottom: '12px' }}>Pipeline Mode</span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          {['legacy', 'shadow', 'v6', 'disabled'].map((mode) => {
+            const isActive = config?.pipeline_mode === mode.toUpperCase();
+            return (
+              <Button
+                key={mode}
+                disabled={loading}
+                variant={isActive ? 'primary' : 'default'}
+                aria-pressed={isActive}
+                onClick={() => withAction(`Pipeline mode set to ${mode}`, () => api.setPipelineMode(mode))}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </Button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: '12px', color: C.textMuted }}>
+          <strong>Current:</strong> {config?.pipeline_mode || 'LEGACY'}
+          {config?.pipeline_mode === 'SHADOW' && (
+            <span style={{ marginLeft: '8px', color: C.warning || '#f59e0b' }}> — V6 runs alongside legacy but does NOT publish</span>
+          )}
+          {config?.pipeline_mode === 'V6' && (
+            <span style={{ marginLeft: '8px', color: C.success }}> — V6 pipeline is primary, legacy tasks disabled</span>
+          )}
+          {config?.pipeline_mode === 'DISABLED' && (
+            <span style={{ marginLeft: '8px', color: C.danger }}> — All pipeline tasks stopped</span>
+          )}
+        </div>
+        <div style={{ marginTop: '8px', fontSize: '11px', color: C.textDim }}>
+          Legacy: Only legacy workflow runs · Shadow: Both run, V6 dry-run · V6: Only V6 pipeline runs · Disabled: All stopped
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '20px' }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: C.text, display: 'block', marginBottom: '16px' }}>Format Distribution</span>

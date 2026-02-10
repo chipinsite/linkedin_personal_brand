@@ -4,9 +4,10 @@ Full-stack workspace for autonomous LinkedIn brand operations with backend workf
 
 ## Version status
 
-- Current version: `v5.4` — deployment infrastructure added.
-- Backend through `v5.3` implemented and tested (160 tests).
-- Frontend operations console implemented (51 tests).
+- Current version: `v6.4` — V6 pipeline complete (all 5 phases: foundation, agents, publisher/promoter, Morgan PM, shadow mode).
+- Backend through `v6.4` implemented and tested (320 tests).
+- Frontend operations console with pipeline view (67 tests).
+- Production deployed at v5.5 on Railway.
 - Single-user operational mode is complete and deployment-ready.
 
 ## Run locally
