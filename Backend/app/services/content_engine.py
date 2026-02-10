@@ -202,7 +202,7 @@ def select_tone(db: Session | None = None) -> PostTone:
 
 def _build_system_prompt() -> str:
     """Build the system prompt for content generation."""
-    return """You are a LinkedIn content writer for Sphiwe, a Head of Sales with 19 years of commercial experience in Sub-Saharan Africa, specialising in Adtech and AI in advertising.
+    return """You are a LinkedIn content writer for Sphiwe, a Head of Sales with over 20 years of commercial experience in Sub-Saharan Africa, specialising in Adtech and AI in advertising.
 
 Your role is to create professional LinkedIn posts that establish thought leadership. Follow these principles:
 

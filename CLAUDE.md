@@ -768,7 +768,7 @@ Day 1: [Pillar] > [Sub Theme] | Angle: [description] | Format: [TEXT/IMAGE/CAROU
 ### 10.3 Daily Post Generation Prompt
 
 ```
-You are writing a LinkedIn post for Sphiwe, a Head of Sales with 19 years of commercial experience in Sub-Saharan Africa, specialising in Adtech and AI in advertising.
+You are writing a LinkedIn post for Sphiwe, a Head of Sales with over 20 years of commercial experience in Sub-Saharan Africa, specialising in Adtech and AI in advertising.
 
 Post parameters:
 - Pillar theme: {pillar_theme}
@@ -1081,6 +1081,8 @@ All AI generated content must adhere to:
 | 5.2 | 2026-02-09 | LinkedIn read integration with post metrics fetching, mock metrics support, engagement service polling, and metrics endpoint |
 | 5.3 | 2026-02-09 | Comment handling with LLM-powered auto-replies, MEDIA_INQUIRY triage, Telegram escalation notifications, and resolution endpoints |
 | 5.4 | 2026-02-09 | Railway deployment infrastructure: Backend/Frontend Dockerfiles, docker-compose.prod.yml, production env template, nginx SPA config, and deployment docs |
+| 5.4.1 | 2026-02-10 | PostgreSQL migration fixes: sa.String + raw SQL enum strategy, lowercase enum values, nginx dynamic PORT for Railway |
+| 5.5 | 2026-02-10 | Zapier webhook integration: webhook_service with retries, HMAC signing, post.publish_ready/draft.approved/post.published events, admin status/test endpoints, migration 0007, and 10 tests |
 
 ---
 
@@ -3219,3 +3221,133 @@ Result:
 - Custom domain and HTTPS certificate setup is done in the Railway dashboard, not automated.
 - Telegram bot webhook mode is not configured; uses polling.
 - Railway free tier may not support 4 services; Pro plan ($20/mo) recommended.
+
+---
+
+## 59. v5.4.1 Railway Production Deployment and PostgreSQL Fixes (2026-02-10)
+
+### 59.1 v5.4.1 Scope
+
+First production deploy to Railway revealed three critical issues requiring immediate fixes:
+
+- PostgreSQL enum type creation conflict in Alembic migration
+- SQLAlchemy enum name/value case mismatch
+- Frontend nginx hardcoded PORT incompatible with Railway dynamic PORT injection
+
+### 59.2 v5.4.1 Implementation
+
+- Rewrote `Backend/alembic/versions/0001_initial.py`:
+  - Use `sa.String(length=20)` for all enum columns in `create_table`
+  - After table creation, raw SQL `CREATE TYPE` for PostgreSQL native enum types
+  - Raw SQL `ALTER TABLE ALTER COLUMN ... TYPE ... USING` to convert String columns to native enums
+  - PostgreSQL enum values use lowercase to match SQLAlchemy enum name persistence
+  - SQLite path unchanged (no enum type conversion needed)
+- Created `Frontend/nginx.conf.template` with `${PORT}` variable
+- Updated `Frontend/Dockerfile` to use `envsubst` for dynamic PORT at runtime
+
+### 59.3 v5.4.1 Validation Status
+
+Executed on 2026-02-10:
+
+- All 4 Railway services deployed and healthy
+- `curl /health` returns `{"status":"ok"}`
+- `curl /health/db` confirms all 11 tables present, migration at `0007_webhook_config`
+- User registration and login verified on production
+- Draft generation with live Claude API verified
+
+### 59.4 Key Lessons
+
+- SQLAlchemy `sa.Enum` in `create_table` always fires `_on_table_create` event. `create_type=False` does NOT prevent this.
+- SQLAlchemy persists Python enum `.name` (lowercase) not `.value` (uppercase) by default.
+- Railway monorepo deploys require `railway up --path-as-root Backend/` — GitHub auto-builds fail.
+
+---
+
+## 60. v5.5 Zapier Webhook Integration (2026-02-10)
+
+### 60.1 v5.5 Scope
+
+v5.5 adds Zapier webhook integration for automated LinkedIn posting:
+
+- Webhook service with retry logic and HMAC signing
+- Integration at three workflow events
+- Admin endpoints for webhook status and testing
+- Config, migration, and test coverage
+
+### 60.2 v5.5 Implementation Added
+
+- New service:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/webhook_service.py`
+  - `send_webhook()` fires HTTP POST to Zapier with 3 retries and exponential backoff (1s, 2s, 4s)
+  - `send_test_webhook()` for connectivity verification
+  - HMAC-SHA256 signing via `X-Webhook-Signature` header when secret is configured
+  - All deliveries logged to `notification_logs` (channel="webhook")
+- Config additions:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/config.py`
+  - `zapier_webhook_url: str | None = None`
+  - `zapier_webhook_secret: str | None = None`
+- Model additions:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/models.py`
+  - `AppConfig.zapier_webhook_url` and `AppConfig.zapier_webhook_secret`
+- Migration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/alembic/versions/0007_webhook_config.py`
+- Workflow integration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/services/workflow.py`
+  - `publish_due_manual_posts()` fires `post.publish_ready` event (PRIMARY integration point)
+- Route integration:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/drafts.py` — fires `draft.approved` on draft approval
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/posts.py` — fires `post.published` on manual publish confirmation
+- Admin endpoints:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/app/routes/admin.py`
+  - `GET /admin/webhook-status` — config status and 24h delivery stats
+  - `POST /admin/webhook-test` — send test payload to verify connectivity
+- Tests:
+  - `/Users/sphiwemawhayi/Personal Brand/Backend/tests/test_webhook.py`
+  - 10 tests covering payload format, retries, logging, HMAC, admin endpoints, and integration
+
+### 60.3 Webhook Event Payloads
+
+All events use this envelope:
+```json
+{
+  "event": "post.publish_ready",
+  "timestamp": "2026-02-10T10:30:00+00:00",
+  "data": {
+    "post_id": "uuid",
+    "content": "Full post text for LinkedIn",
+    "format": "TEXT",
+    "pillar_theme": "Adtech fundamentals",
+    "sub_theme": "Programmatic buying"
+  }
+}
+```
+
+Events fired:
+- `post.publish_ready` — when scheduled post is due (primary: Zapier maps `data.content` to LinkedIn post body)
+- `draft.approved` — when a draft is approved and scheduled
+- `post.published` — when manual publish is confirmed with LinkedIn URL
+
+### 60.4 v5.5 Validation Status
+
+Executed on 2026-02-10:
+
+- `cd Backend && ./.venv/bin/python -m pytest tests/ -v`
+- `cd Frontend && npm test -- --run`
+- `cd Frontend && npm run build`
+- Railway deploy: all 3 backend services updated
+- `curl /admin/webhook-status` returns expected structure
+- `curl -X POST /admin/webhook-test` returns `{"success":false,"error":"No webhook URL configured"}`
+- `curl /health/db` confirms migration at `0007_webhook_config`
+
+Result:
+
+- backend tests passed (`170/170`)
+- frontend tests passed (`51/51`)
+- frontend production build passed
+- production deployment verified
+
+### 60.5 Remaining Constraints
+
+- `ZAPIER_WEBHOOK_URL` not yet set on Railway (user needs to create Zapier account first)
+- No acknowledgment mechanism to confirm LinkedIn post was published by Zapier
+- Webhook delivery uses `time.sleep()` for retry backoff, blocking the request thread (acceptable for single-user)

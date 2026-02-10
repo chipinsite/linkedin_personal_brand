@@ -147,7 +147,7 @@ def _generate_mock_linkedin_post(prompt: str) -> str:
 
 The real shift is not about technology adoption. It is about operational rhythm.
 
-Teams that tighten the loop between insight and action consistently outperform those with better tools but slower cycles. I have seen this pattern repeatedly over 19 years in Sub-Saharan Africa markets.
+Teams that tighten the loop between insight and action consistently outperform those with better tools but slower cycles. I have seen this pattern repeatedly over 20 years in Sub-Saharan Africa markets.
 
 Three signals that indicate maturity:
 1. Decision latency under 48 hours for campaign changes
