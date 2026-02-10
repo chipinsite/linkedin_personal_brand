@@ -111,11 +111,12 @@ def upgrade() -> None:
     )
 
     # On PostgreSQL, create native enum types and convert the varchar columns.
-    # SQLite stores enums as plain strings so no conversion needed.
+    # SQLAlchemy persists Python enum NAMES (lowercase) by default, not values.
+    # The PostgreSQL enum values must match: text/image/carousel, not TEXT/IMAGE/CAROUSEL.
     if is_pg:
-        op.execute("CREATE TYPE postformat AS ENUM ('TEXT', 'IMAGE', 'CAROUSEL')")
-        op.execute("CREATE TYPE posttone AS ENUM ('EDUCATIONAL', 'OPINIONATED', 'DIRECT', 'EXPLORATORY')")
-        op.execute("CREATE TYPE draftstatus AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'EXPIRED')")
+        op.execute("CREATE TYPE postformat AS ENUM ('text', 'image', 'carousel')")
+        op.execute("CREATE TYPE posttone AS ENUM ('educational', 'opinionated', 'direct', 'exploratory')")
+        op.execute("CREATE TYPE draftstatus AS ENUM ('pending', 'approved', 'rejected', 'expired')")
 
         op.execute("ALTER TABLE drafts ALTER COLUMN format TYPE postformat USING format::postformat")
         op.execute("ALTER TABLE drafts ALTER COLUMN tone TYPE posttone USING tone::posttone")
