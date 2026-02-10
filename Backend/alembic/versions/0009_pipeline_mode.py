@@ -29,13 +29,26 @@ def upgrade() -> None:
 
     if is_pg:
         op.execute(
+            "DO $$ BEGIN "
             "CREATE TYPE pipelinemode AS ENUM ("
             "'legacy', 'shadow', 'v6', 'disabled'"
-            ")"
+            "); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
+        )
+        # Drop server_default before type conversion to avoid cast conflict
+        op.execute(
+            "ALTER TABLE app_config "
+            "ALTER COLUMN pipeline_mode DROP DEFAULT"
         )
         op.execute(
             "ALTER TABLE app_config "
             "ALTER COLUMN pipeline_mode TYPE pipelinemode USING pipeline_mode::pipelinemode"
+        )
+        # Re-set the default using the native enum value
+        op.execute(
+            "ALTER TABLE app_config "
+            "ALTER COLUMN pipeline_mode SET DEFAULT 'legacy'::pipelinemode"
         )
 
 

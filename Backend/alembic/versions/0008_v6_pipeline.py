@@ -68,23 +68,42 @@ def upgrade() -> None:
 
     # On PostgreSQL, create native enum types and convert varchar columns.
     # SQLAlchemy persists Python enum NAMES (lowercase) by default.
+    # IMPORTANT: Drop server_default before ALTER TYPE to avoid cast conflict,
+    # then re-set the default using the native enum value.
     if is_pg:
         op.execute(
+            "DO $$ BEGIN "
             "CREATE TYPE pipelinestatus AS ENUM ("
             "'backlog', 'todo', 'writing', 'review', "
             "'ready_to_publish', 'published', 'amplified', 'done'"
-            ")"
+            "); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
         )
         op.execute(
+            "DO $$ BEGIN "
             "CREATE TYPE socialstatus AS ENUM ("
             "'pending', 'amplified', 'monitoring_complete'"
-            ")"
+            "); "
+            "EXCEPTION WHEN duplicate_object THEN NULL; "
+            "END $$"
         )
 
+        # Drop server_default before type conversion to avoid cast conflict
+        op.execute(
+            "ALTER TABLE content_pipeline_items "
+            "ALTER COLUMN status DROP DEFAULT"
+        )
         op.execute(
             "ALTER TABLE content_pipeline_items "
             "ALTER COLUMN status TYPE pipelinestatus USING status::pipelinestatus"
         )
+        # Re-set the default using the native enum value
+        op.execute(
+            "ALTER TABLE content_pipeline_items "
+            "ALTER COLUMN status SET DEFAULT 'backlog'::pipelinestatus"
+        )
+
         op.execute(
             "ALTER TABLE content_pipeline_items "
             "ALTER COLUMN social_status TYPE socialstatus USING social_status::socialstatus"
