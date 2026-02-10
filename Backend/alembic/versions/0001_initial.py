@@ -1,7 +1,7 @@
 """initial schema
 
 Revision ID: 0001_initial
-Revises: 
+Revises:
 Create Date: 2026-02-06 11:55:00
 """
 
@@ -18,16 +18,9 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-post_format_enum = sa.Enum("TEXT", "IMAGE", "CAROUSEL", name="postformat", create_type=False)
-post_tone_enum = sa.Enum("EDUCATIONAL", "OPINIONATED", "DIRECT", "EXPLORATORY", name="posttone", create_type=False)
-draft_status_enum = sa.Enum("PENDING", "APPROVED", "REJECTED", "EXPIRED", name="draftstatus", create_type=False)
-
-
 def upgrade() -> None:
     bind = op.get_bind()
-    post_format_enum.create(bind, checkfirst=True)
-    post_tone_enum.create(bind, checkfirst=True)
-    draft_status_enum.create(bind, checkfirst=True)
+    is_pg = bind.dialect.name == "postgresql"
 
     op.create_table(
         "app_config",
@@ -38,18 +31,20 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
+    # Use sa.String for all enum columns to avoid SQLAlchemy's automatic
+    # CREATE TYPE on PostgreSQL. We alter them to native enums afterward.
     op.create_table(
         "drafts",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("pillar_theme", sa.String(length=120), nullable=False),
         sa.Column("sub_theme", sa.String(length=120), nullable=False),
-        sa.Column("format", post_format_enum, nullable=False),
-        sa.Column("tone", post_tone_enum, nullable=False),
+        sa.Column("format", sa.String(length=20), nullable=False),
+        sa.Column("tone", sa.String(length=20), nullable=False),
         sa.Column("content_body", sa.Text(), nullable=False),
         sa.Column("image_url", sa.String(length=512), nullable=True),
         sa.Column("carousel_document_url", sa.String(length=512), nullable=True),
-        sa.Column("status", draft_status_enum, nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("approval_timestamp", sa.DateTime(timezone=True), nullable=True),
         sa.Column("rejection_reason", sa.String(length=256), nullable=True),
         sa.Column("guardrail_check_passed", sa.Boolean(), nullable=False),
@@ -80,8 +75,8 @@ def upgrade() -> None:
         sa.Column("actual_publish_time", sa.DateTime(timezone=True), nullable=True),
         sa.Column("manual_publish_notified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("content_body", sa.Text(), nullable=False),
-        sa.Column("format", post_format_enum, nullable=False),
-        sa.Column("tone", post_tone_enum, nullable=False),
+        sa.Column("format", sa.String(length=20), nullable=False),
+        sa.Column("tone", sa.String(length=20), nullable=False),
         sa.Column("impressions", sa.Integer(), nullable=True),
         sa.Column("reactions", sa.Integer(), nullable=True),
         sa.Column("comments_count", sa.Integer(), nullable=True),
@@ -115,6 +110,19 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
+    # On PostgreSQL, create native enum types and convert the varchar columns.
+    # SQLite stores enums as plain strings so no conversion needed.
+    if is_pg:
+        op.execute("CREATE TYPE postformat AS ENUM ('TEXT', 'IMAGE', 'CAROUSEL')")
+        op.execute("CREATE TYPE posttone AS ENUM ('EDUCATIONAL', 'OPINIONATED', 'DIRECT', 'EXPLORATORY')")
+        op.execute("CREATE TYPE draftstatus AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'EXPIRED')")
+
+        op.execute("ALTER TABLE drafts ALTER COLUMN format TYPE postformat USING format::postformat")
+        op.execute("ALTER TABLE drafts ALTER COLUMN tone TYPE posttone USING tone::posttone")
+        op.execute("ALTER TABLE drafts ALTER COLUMN status TYPE draftstatus USING status::draftstatus")
+        op.execute("ALTER TABLE published_posts ALTER COLUMN format TYPE postformat USING format::postformat")
+        op.execute("ALTER TABLE published_posts ALTER COLUMN tone TYPE posttone USING tone::posttone")
+
 
 def downgrade() -> None:
     op.drop_table("comments")
@@ -124,6 +132,7 @@ def downgrade() -> None:
     op.drop_table("app_config")
 
     bind = op.get_bind()
-    draft_status_enum.drop(bind, checkfirst=True)
-    post_tone_enum.drop(bind, checkfirst=True)
-    post_format_enum.drop(bind, checkfirst=True)
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP TYPE IF EXISTS draftstatus")
+        op.execute("DROP TYPE IF EXISTS posttone")
+        op.execute("DROP TYPE IF EXISTS postformat")
