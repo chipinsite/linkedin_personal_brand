@@ -11,9 +11,12 @@ class Base(DeclarativeBase):
 
 
 def _engine_kwargs(database_url: str) -> dict:
-    kwargs = {"pool_pre_ping": True}
+    kwargs = {"pool_pre_ping": True, "pool_timeout": 10}
     if database_url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        # Set connect_timeout for PostgreSQL to avoid hanging on unreachable DB
+        kwargs["connect_args"] = {"connect_timeout": 10}
     return kwargs
 
 
