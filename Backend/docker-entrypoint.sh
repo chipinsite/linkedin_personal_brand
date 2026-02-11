@@ -2,10 +2,13 @@
 set -e
 
 # Run database migrations before starting any service.
-# This is safe to run on every startup — Alembic is idempotent.
+# Uses a timeout to avoid blocking if another service holds the Alembic lock.
 echo "Running database migrations..."
-alembic upgrade head
-echo "Migrations complete."
+if timeout 30 alembic upgrade head 2>&1; then
+  echo "Migrations complete."
+else
+  echo "Migration timed out or failed (another service may be running it). Continuing startup..."
+fi
 
 case "${SERVICE}" in
   api)
